@@ -20,11 +20,15 @@ export interface DatasetFull extends DatasetMeta {
 }
 
 function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(DATASETS_FILE)) {
-    fs.writeFileSync(DATASETS_FILE, "[]", "utf-8");
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(DATASETS_FILE)) {
+      fs.writeFileSync(DATASETS_FILE, "[]", "utf-8");
+    }
+  } catch {
+    // Vercel serverless: writes don't persist, but that's OK for demo
   }
 }
 
@@ -53,12 +57,16 @@ export function saveDataset(dataset: DatasetFull): void {
   const { rows, ...meta } = dataset;
   datasets.push(meta);
 
-  fs.writeFileSync(DATASETS_FILE, JSON.stringify(datasets, null, 2), "utf-8");
-  fs.writeFileSync(
-    path.join(DATA_DIR, `${dataset.id}.json`),
-    JSON.stringify(rows),
-    "utf-8"
-  );
+  try {
+    fs.writeFileSync(DATASETS_FILE, JSON.stringify(datasets, null, 2), "utf-8");
+    fs.writeFileSync(
+      path.join(DATA_DIR, `${dataset.id}.json`),
+      JSON.stringify(rows),
+      "utf-8"
+    );
+  } catch {
+    // Vercel serverless: writes don't persist, but that's OK for demo
+  }
 }
 
 export function deleteDataset(id: string): boolean {
@@ -68,11 +76,15 @@ export function deleteDataset(id: string): boolean {
   if (index === -1) return false;
 
   datasets.splice(index, 1);
-  fs.writeFileSync(DATASETS_FILE, JSON.stringify(datasets, null, 2), "utf-8");
+  try {
+    fs.writeFileSync(DATASETS_FILE, JSON.stringify(datasets, null, 2), "utf-8");
 
-  const dataFile = path.join(DATA_DIR, `${id}.json`);
-  if (fs.existsSync(dataFile)) {
-    fs.unlinkSync(dataFile);
+    const dataFile = path.join(DATA_DIR, `${id}.json`);
+    if (fs.existsSync(dataFile)) {
+      fs.unlinkSync(dataFile);
+    }
+  } catch {
+    // Vercel serverless: writes don't persist, but that's OK for demo
   }
 
   return true;
