@@ -3,6 +3,7 @@ import { getAllDatasets } from "@/lib/store";
 import { ensureSeedData } from "@/lib/seed";
 import { getDataset } from "@/lib/store";
 import { computeDatasetStats } from "@/lib/stats";
+import { analyzeDataset } from "@/lib/insights";
 import KPICard from "@/components/KPICard";
 import DashboardCharts from "./DashboardCharts";
 import DashboardTable from "./DashboardTable";
@@ -83,6 +84,9 @@ export default function DashboardPage() {
     (sum, arr) => sum + arr.length,
     0
   );
+
+  const insights = analyzeDataset(dataset.rows, stats, dataset.headers, dataset.columnTypes);
+  const topInsights = insights.slice(0, 3);
 
   const chartData = dataset.rows.map((row) => {
     const item: Record<string, string | number> = { [labelCol]: row[labelCol] };
@@ -205,6 +209,34 @@ export default function DashboardPage() {
           }
         />
       </div>
+
+      {/* Top Insights */}
+      {topInsights.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-text-secondary">Key Insights</h2>
+            <Link
+              href={`/datasets/${latest.id}`}
+              className="text-xs text-accent hover:text-accent-hover"
+            >
+              View all insights &rarr;
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {topInsights.map((insight, i) => (
+              <div
+                key={i}
+                className="bg-bg-card rounded-xl border border-border-subtle p-4 hover:border-border-color transition-colors"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-xl flex-shrink-0">{insight.icon}</span>
+                  <p className="text-sm text-text-primary leading-relaxed">{insight.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Charts */}
       <DashboardCharts

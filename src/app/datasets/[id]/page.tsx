@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getDataset } from "@/lib/store";
 import { ensureSeedData } from "@/lib/seed";
 import { computeDatasetStats } from "@/lib/stats";
+import { analyzeDataset } from "@/lib/insights";
+import { calculateQuality, getQualityBgColor, getQualityLabel } from "@/lib/quality";
 import KPICard from "@/components/KPICard";
 import DatasetDetailCharts from "./DatasetDetailCharts";
 import DatasetDetailTable from "./DatasetDetailTable";
@@ -63,6 +65,9 @@ export default async function DatasetDetailPage({
     0
   );
 
+  const insights = analyzeDataset(dataset.rows, stats, dataset.headers, dataset.columnTypes);
+  const quality = calculateQuality(dataset.rows, stats);
+
   const chartData = dataset.rows.map((row) => {
     const item: Record<string, string | number> = { [labelCol]: row[labelCol] };
     numericCols.forEach((col) => {
@@ -102,11 +107,65 @@ export default async function DatasetDetailPage({
               })}
             </p>
           </div>
-          <CsvDownloadButton
-            headers={dataset.headers}
-            rows={dataset.rows}
-            fileName={dataset.fileName}
-          />
+          <div className="flex items-center gap-3">
+            <span className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${getQualityBgColor(quality.qualityScore)}`}>
+              Quality: {quality.qualityScore}/100 ({getQualityLabel(quality.qualityScore)})
+            </span>
+            <CsvDownloadButton
+              headers={dataset.headers}
+              rows={dataset.rows}
+              fileName={dataset.fileName}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Insights */}
+      {insights.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-sm font-medium text-text-secondary mb-4">Auto-Generated Insights</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {insights.map((insight, i) => (
+              <div
+                key={i}
+                className="bg-bg-card rounded-xl border border-border-subtle p-4 hover:border-border-color transition-colors"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-xl flex-shrink-0 mt-0.5">{insight.icon}</span>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider font-medium text-text-muted block mb-1">
+                      {insight.type}
+                    </span>
+                    <p className="text-sm text-text-primary leading-relaxed">{insight.text}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Data Quality */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-bg-card rounded-xl border border-border-subtle p-4">
+          <p className="text-xs text-text-muted mb-1">Quality Score</p>
+          <p className={`text-2xl font-bold ${quality.qualityScore > 80 ? "text-success" : quality.qualityScore > 60 ? "text-warning" : "text-danger"}`}>
+            {quality.qualityScore}
+          </p>
+        </div>
+        <div className="bg-bg-card rounded-xl border border-border-subtle p-4">
+          <p className="text-xs text-text-muted mb-1">Completeness</p>
+          <p className="text-2xl font-bold text-text-primary">{quality.completeness}%</p>
+        </div>
+        <div className="bg-bg-card rounded-xl border border-border-subtle p-4">
+          <p className="text-xs text-text-muted mb-1">Uniqueness</p>
+          <p className="text-2xl font-bold text-text-primary">{quality.uniqueness}%</p>
+        </div>
+        <div className="bg-bg-card rounded-xl border border-border-subtle p-4">
+          <p className="text-xs text-text-muted mb-1">Anomalies</p>
+          <p className={`text-2xl font-bold ${quality.anomalyCount > 0 ? "text-danger" : "text-success"}`}>
+            {quality.anomalyCount}
+          </p>
         </div>
       </div>
 

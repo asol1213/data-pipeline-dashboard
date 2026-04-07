@@ -1,12 +1,24 @@
 import Link from "next/link";
-import { getAllDatasets } from "@/lib/store";
+import { getAllDatasets, getDataset } from "@/lib/store";
 import { ensureSeedData } from "@/lib/seed";
+import { computeDatasetStats } from "@/lib/stats";
+import { calculateQuality, getQualityBgColor, getQualityLabel } from "@/lib/quality";
 
 export const dynamic = "force-dynamic";
 
 export default function DatasetsPage() {
   ensureSeedData();
   const datasets = getAllDatasets();
+
+  // Compute quality scores for each dataset
+  const qualityScores: Record<string, ReturnType<typeof calculateQuality>> = {};
+  for (const ds of datasets) {
+    const full = getDataset(ds.id);
+    if (full) {
+      const stats = computeDatasetStats(full.rows, full.headers, full.columnTypes);
+      qualityScores[ds.id] = calculateQuality(full.rows, stats);
+    }
+  }
 
   return (
     <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -64,6 +76,13 @@ export default function DatasetsPage() {
                   <p className="text-sm text-text-muted">{ds.fileName}</p>
                 </div>
                 <div className="text-right">
+                  <div className="flex items-center gap-2 justify-end mb-1">
+                    {qualityScores[ds.id] && (
+                      <span className={`text-xs px-2 py-0.5 rounded-md border font-medium ${getQualityBgColor(qualityScores[ds.id].qualityScore)}`}>
+                        {qualityScores[ds.id].qualityScore}/100 {getQualityLabel(qualityScores[ds.id].qualityScore)}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-text-secondary">
                     {ds.rowCount.toLocaleString()} rows &middot;{" "}
                     {ds.columnCount} columns
