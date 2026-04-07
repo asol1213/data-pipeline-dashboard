@@ -41,11 +41,11 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
-        <nav className="border-b border-border-subtle bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-50">
+        <nav className="border-b border-border-subtle bg-bg-secondary/90 backdrop-blur-md sticky top-0 z-50">
           <div className="mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-[#8b5cf6] flex items-center justify-center shadow-lg shadow-accent/20">
                   <svg
                     className="w-5 h-5 text-white"
                     fill="none"
@@ -62,7 +62,7 @@ export default function RootLayout({
                 </div>
                 <Link
                   href="/"
-                  className="text-lg font-semibold text-text-primary"
+                  className="text-lg font-bold text-text-primary tracking-tight"
                 >
                   DataPipe
                 </Link>

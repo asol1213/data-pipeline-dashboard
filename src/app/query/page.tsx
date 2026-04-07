@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 
 interface QueryResult {
   columns: string[];
@@ -17,6 +17,32 @@ interface QueryHistoryItem {
   error?: string;
 }
 
+const EXAMPLE_QUERIES = [
+  { label: "All data (first 5)", sql: "SELECT * FROM sales-q1-2026 LIMIT 5" },
+  { label: "Revenue by month (desc)", sql: "SELECT Month, Revenue FROM sales-q1-2026 ORDER BY Revenue DESC" },
+  { label: "Revenue aggregates", sql: "SELECT AVG(Revenue), MAX(Revenue), MIN(Revenue) FROM sales-q1-2026" },
+  { label: "High revenue months", sql: "SELECT Month, Revenue FROM sales-q1-2026 WHERE Revenue > 200000" },
+  { label: "High churn count", sql: "SELECT COUNT(*) FROM sales-q1-2026 WHERE Churn_Rate > 3" },
+];
+
+function highlightSQL(sql: string): string {
+  const keywords = /\b(SELECT|FROM|WHERE|ORDER\s+BY|GROUP\s+BY|HAVING|LIMIT|ASC|DESC|AND|OR|NOT|IN|LIKE|BETWEEN|IS|NULL|AS|ON|JOIN|LEFT|RIGHT|INNER|OUTER|UNION|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|TABLE|INTO|VALUES|SET|DISTINCT)\b/gi;
+  const functions = /\b(COUNT|SUM|AVG|MIN|MAX|ROUND|UPPER|LOWER|LENGTH|COALESCE|IFNULL|CAST)\b/gi;
+  const strings = /('[^']*')/g;
+  const numbers = /\b(\d+\.?\d*)\b/g;
+
+  let result = sql;
+  // Order matters: strings first to avoid highlighting inside strings
+  result = result.replace(strings, '<span class="sql-string">$1</span>');
+  result = result.replace(functions, '<span class="sql-function">$1</span>');
+  result = result.replace(keywords, '<span class="sql-keyword">$1</span>');
+  // Only highlight numbers that aren't inside a span tag
+  result = result.replace(/(?<![\w">])(\d+\.?\d*)(?![^<]*>)/g, '<span class="sql-number">$1</span>');
+  return result;
+}
+
+type SortDir = "asc" | "desc" | null;
+
 export default function QueryPage() {
   const [sql, setSql] = useState(
     "SELECT * FROM sales-q1-2026 LIMIT 10"
@@ -26,12 +52,16 @@ export default function QueryPage() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<QueryHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(true);
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>(null);
 
   const runQuery = useCallback(async () => {
     if (!sql.trim()) return;
     setLoading(true);
     setError("");
     setResult(null);
+    setSortCol(null);
+    setSortDir(null);
 
     try {
       const res = await fetch("/api/query", {
@@ -71,11 +101,44 @@ export default function QueryPage() {
     }
   };
 
+  const handleSort = (col: string) => {
+    if (sortCol === col) {
+      if (sortDir === "asc") setSortDir("desc");
+      else if (sortDir === "desc") { setSortCol(null); setSortDir(null); }
+      else setSortDir("asc");
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  };
+
+  const sortedRows = useMemo(() => {
+    if (!result || !sortCol || !sortDir) return result?.rows ?? [];
+    const rows = [...result.rows];
+    rows.sort((a, b) => {
+      const aVal = a[sortCol];
+      const bVal = b[sortCol];
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortDir === "asc" ? aVal - bVal : bVal - aVal;
+      }
+      const aStr = String(aVal ?? "");
+      const bStr = String(bVal ?? "");
+      return sortDir === "asc" ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+    });
+    return rows;
+  }, [result, sortCol, sortDir]);
+
+  const sortIndicator = (col: string) => {
+    if (sortCol !== col) return " \u2195";
+    if (sortDir === "asc") return " \u2191";
+    return " \u2193";
+  };
+
   return (
     <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary">SQL Query Editor</h1>
-        <p className="text-sm text-text-muted mt-1">
+      <div className="dashboard-header rounded-2xl p-6 mb-8">
+        <h1 className="text-2xl font-bold text-white">SQL Query Editor</h1>
+        <p className="text-sm text-blue-200 mt-1">
           Query your datasets using SQL. Use dataset IDs or names as table names.
         </p>
       </div>
@@ -93,14 +156,22 @@ export default function QueryPage() {
                 {"\u2318"}+Enter to run
               </span>
             </div>
-            <textarea
-              value={sql}
-              onChange={(e) => setSql(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="w-full bg-[#0d1117] text-emerald-400 font-mono text-sm p-4 min-h-[180px] resize-y focus:outline-none placeholder-text-muted"
-              placeholder="SELECT * FROM dataset_id WHERE column > value"
-              spellCheck={false}
-            />
+            <div className="relative">
+              <textarea
+                value={sql}
+                onChange={(e) => setSql(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full bg-[#0d1117] text-emerald-400 font-mono text-sm p-4 min-h-[180px] resize-y focus:outline-none placeholder-text-muted"
+                placeholder="SELECT * FROM dataset_id WHERE column > value"
+                spellCheck={false}
+              />
+              {/* Syntax-highlighted overlay for display */}
+              <div
+                className="absolute top-0 left-0 w-full p-4 font-mono text-sm pointer-events-none whitespace-pre-wrap break-words min-h-[180px] opacity-0"
+                aria-hidden="true"
+                dangerouslySetInnerHTML={{ __html: highlightSQL(sql) }}
+              />
+            </div>
             <div className="px-4 py-3 border-t border-border-subtle flex items-center justify-between">
               <div className="text-xs text-text-muted">
                 Supports: SELECT, WHERE, ORDER BY, LIMIT, GROUP BY, COUNT, SUM, AVG, MIN, MAX
@@ -135,21 +206,33 @@ export default function QueryPage() {
             </div>
           )}
 
-          {/* Results */}
+          {/* Result Stats Banner */}
+          {result && (
+            <div className="flex items-center gap-4 mb-4 p-3 bg-bg-card rounded-xl border border-border-subtle">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#22c55e]"></div>
+                <span className="text-sm font-semibold text-text-primary">{result.rowCount} row{result.rowCount !== 1 ? "s" : ""} returned</span>
+              </div>
+              <div className="w-px h-4 bg-border-subtle"></div>
+              <div className="flex items-center gap-2">
+                <svg className="w-3.5 h-3.5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-semibold text-text-primary">{result.executionTime}ms</span>
+              </div>
+              <div className="w-px h-4 bg-border-subtle"></div>
+              <span className="text-xs text-text-muted">{result.columns.length} column{result.columns.length !== 1 ? "s" : ""}</span>
+            </div>
+          )}
+
+          {/* Results Table */}
           {result && (
             <div className="bg-bg-card rounded-xl border border-border-subtle overflow-hidden">
               <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
-                    Results
-                  </span>
-                  <span className="text-xs text-text-secondary">
-                    {result.rowCount} row{result.rowCount !== 1 ? "s" : ""}
-                  </span>
-                </div>
-                <span className="text-xs text-text-muted">
-                  {result.executionTime}ms
+                <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
+                  Results
                 </span>
+                <span className="text-xs text-text-muted">Click column headers to sort</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -158,15 +241,16 @@ export default function QueryPage() {
                       {result.columns.map((col) => (
                         <th
                           key={col}
-                          className="text-left px-4 py-2.5 text-text-muted font-medium"
+                          onClick={() => handleSort(col)}
+                          className="text-left px-4 py-2.5 text-text-muted font-medium sortable-header"
                         >
-                          {col}
+                          {col}{sortIndicator(col)}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {result.rows.map((row, i) => (
+                    {sortedRows.map((row, i) => (
                       <tr
                         key={i}
                         className="border-b border-border-subtle/50 hover:bg-bg-card-hover transition-colors"
@@ -193,10 +277,36 @@ export default function QueryPage() {
           )}
         </div>
 
-        {/* History sidebar */}
+        {/* Sidebar */}
         {showHistory && (
-          <div className="w-72 flex-shrink-0">
+          <div className="w-80 flex-shrink-0 space-y-4">
+            {/* Example Queries */}
             <div className="bg-bg-card rounded-xl border border-border-subtle overflow-hidden sticky top-20">
+              <div className="px-4 py-3 border-b border-border-subtle">
+                <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
+                  Example Queries
+                </span>
+              </div>
+              <div className="divide-y divide-border-subtle/50">
+                {EXAMPLE_QUERIES.map((eq, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSql(eq.sql)}
+                    className="w-full text-left px-4 py-3 hover:bg-bg-card-hover transition-colors group"
+                  >
+                    <div className="text-xs font-medium text-text-secondary group-hover:text-accent mb-1">
+                      {eq.label}
+                    </div>
+                    <div className="font-mono text-[11px] text-text-muted truncate">
+                      {eq.sql}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Query History */}
+            <div className="bg-bg-card rounded-xl border border-border-subtle overflow-hidden">
               <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
                 <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
                   Query History
@@ -213,7 +323,7 @@ export default function QueryPage() {
                   No queries yet
                 </div>
               ) : (
-                <div className="max-h-[60vh] overflow-y-auto">
+                <div className="max-h-[40vh] overflow-y-auto">
                   {history.map((item, i) => (
                     <button
                       key={i}
@@ -253,7 +363,7 @@ export default function QueryPage() {
             onClick={() => setShowHistory(true)}
             className="fixed right-6 top-24 px-3 py-1.5 rounded-lg bg-bg-card border border-border-subtle text-xs text-text-muted hover:text-text-secondary"
           >
-            Show History
+            Show Sidebar
           </button>
         )}
       </div>

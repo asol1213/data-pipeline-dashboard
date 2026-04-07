@@ -4,9 +4,6 @@ import path from "path";
 export default defineConfig({
   test: {
     pool: "forks",
-    poolOptions: {
-      forks: { singleFork: true },
-    },
     sequence: {
       concurrent: false,
     },

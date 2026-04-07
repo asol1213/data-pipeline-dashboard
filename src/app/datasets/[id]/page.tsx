@@ -78,12 +78,20 @@ export default async function DatasetDetailPage({
 
   const chartColors = [
     "#3b82f6",
-    "#10b981",
-    "#f59e0b",
     "#8b5cf6",
-    "#ef4444",
     "#06b6d4",
+    "#f59e0b",
+    "#ef4444",
+    "#22c55e",
   ];
+
+  // Key metrics: find the most important numbers from numeric columns
+  const keyMetrics = stats.numericSummary.slice(0, 3).map((ns) => ({
+    column: ns.column,
+    mean: ns.mean,
+    max: ns.max,
+    min: ns.min,
+  }));
 
   return (
     <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -120,15 +128,58 @@ export default async function DatasetDetailPage({
         </div>
       </div>
 
+      {/* Key Metrics - Big Numbers */}
+      {keyMetrics.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-1 h-6 rounded-full bg-[#8b5cf6]"></div>
+            <h2 className="text-lg font-semibold text-text-primary">Key Metrics</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {keyMetrics.map((km) => (
+              <div key={km.column} className="bg-bg-card rounded-xl border border-border-subtle p-6 hover:border-accent/30 transition-all">
+                <p className="text-xs font-medium uppercase tracking-wider text-text-muted mb-3">{km.column.replace(/_/g, " ")}</p>
+                <div className="flex items-end gap-3">
+                  <p className="text-4xl font-bold text-text-primary tracking-tight">{km.mean.toLocaleString()}</p>
+                  <p className="text-xs text-text-muted pb-1.5">avg</p>
+                </div>
+                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border-subtle/50">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-text-muted">Min</span>
+                    <p className="text-sm font-semibold text-[#06b6d4]">{km.min.toLocaleString()}</p>
+                  </div>
+                  <div className="w-px h-6 bg-border-subtle"></div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-text-muted">Max</span>
+                    <p className="text-sm font-semibold text-[#f59e0b]">{km.max.toLocaleString()}</p>
+                  </div>
+                  <div className="w-px h-6 bg-border-subtle"></div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-text-muted">Range</span>
+                    <p className="text-sm font-semibold text-text-secondary">{(km.max - km.min).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Insights */}
       {insights.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-sm font-medium text-text-secondary mb-4">Auto-Generated Insights</h2>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-1 h-6 rounded-full bg-accent"></div>
+            <h2 className="text-lg font-semibold text-text-primary">Auto-Generated Insights</h2>
+            <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full font-medium">
+              {insights.length} found
+            </span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {insights.map((insight, i) => (
               <div
                 key={i}
-                className="bg-bg-card rounded-xl border border-border-subtle p-4 hover:border-border-color transition-colors"
+                className="bg-bg-card rounded-xl border border-border-subtle p-4 hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5 transition-all"
               >
                 <div className="flex items-start gap-3">
                   <span className="text-xl flex-shrink-0 mt-0.5">{insight.icon}</span>
@@ -237,6 +288,7 @@ export default async function DatasetDetailPage({
             </thead>
             <tbody>
               {stats.columns.map((col) => {
+                const anomalyCount = col.anomalies?.length ?? 0;
                 const typeColors: Record<string, string> = {
                   number: "text-blue-400",
                   date: "text-purple-400",
@@ -260,8 +312,11 @@ export default async function DatasetDetailPage({
                       {col.max !== undefined ? col.max.toLocaleString() : "-"}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      {col.anomalies && col.anomalies.length > 0 ? (
-                        <span className="text-danger font-medium">{col.anomalies.length}</span>
+                      {anomalyCount > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-danger font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-danger inline-block"></span>
+                          {anomalyCount}
+                        </span>
                       ) : (
                         <span className="text-text-muted">0</span>
                       )}

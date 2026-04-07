@@ -4,6 +4,7 @@ import { ensureSeedData } from "@/lib/seed";
 import { getDataset } from "@/lib/store";
 import { computeDatasetStats } from "@/lib/stats";
 import { analyzeDataset } from "@/lib/insights";
+import { calculateQuality } from "@/lib/quality";
 import KPICard from "@/components/KPICard";
 import DashboardCharts from "./DashboardCharts";
 import DashboardTable from "./DashboardTable";
@@ -86,7 +87,8 @@ export default function DashboardPage() {
   );
 
   const insights = analyzeDataset(dataset.rows, stats, dataset.headers, dataset.columnTypes);
-  const topInsights = insights.slice(0, 3);
+  const topInsights = insights.slice(0, 6);
+  const quality = calculateQuality(dataset.rows, stats);
 
   const chartData = dataset.rows.map((row) => {
     const item: Record<string, string | number> = { [labelCol]: row[labelCol] };
@@ -98,30 +100,97 @@ export default function DashboardPage() {
 
   const chartColors = [
     "#3b82f6",
-    "#10b981",
-    "#f59e0b",
     "#8b5cf6",
-    "#ef4444",
     "#06b6d4",
+    "#f59e0b",
+    "#ef4444",
+    "#22c55e",
   ];
 
   return (
     <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-          <p className="text-sm text-text-muted mt-1">
-            Showing: {latest.name} &middot; {datasets.length} dataset
-            {datasets.length !== 1 ? "s" : ""} total
-          </p>
+      {/* Dashboard Header */}
+      <div className="dashboard-header rounded-2xl p-6 mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+            <p className="text-sm text-blue-200 mt-1">
+              Showing: {latest.name} &middot; {datasets.length} dataset
+              {datasets.length !== 1 ? "s" : ""} total
+            </p>
+          </div>
+          <Link
+            href={`/datasets/${latest.id}`}
+            className="text-sm bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg backdrop-blur-sm transition-colors"
+          >
+            View full dataset &rarr;
+          </Link>
         </div>
-        <Link
-          href={`/datasets/${latest.id}`}
-          className="text-sm text-accent hover:text-accent-hover transition-colors"
-        >
-          View full dataset &rarr;
-        </Link>
       </div>
+
+      {/* Quick Stats Summary Bar */}
+      <div className="bg-bg-card rounded-xl border border-border-subtle p-4 mb-8">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-accent"></div>
+              <span className="text-sm text-text-secondary font-medium">{stats.totalRows} rows</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#8b5cf6]"></div>
+              <span className="text-sm text-text-secondary font-medium">{stats.totalColumns} columns</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#f59e0b]"></div>
+              <span className="text-sm text-text-secondary font-medium">{totalAnomalies} anomalies</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${quality.qualityScore > 80 ? "bg-[#22c55e]" : quality.qualityScore > 60 ? "bg-[#f59e0b]" : "bg-[#ef4444]"}`}></div>
+              <span className="text-sm text-text-secondary font-medium">Quality: {quality.qualityScore}%</span>
+            </div>
+          </div>
+          <span className="text-xs text-text-muted">Last updated: {new Date().toLocaleDateString()}</span>
+        </div>
+      </div>
+
+      {/* Top Insights - PROMINENT */}
+      {topInsights.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-1 h-6 rounded-full bg-accent"></div>
+              <h2 className="text-lg font-semibold text-text-primary">Key Insights</h2>
+              <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full font-medium">
+                {insights.length} found
+              </span>
+            </div>
+            <Link
+              href={`/datasets/${latest.id}`}
+              className="text-xs text-accent hover:text-accent-hover"
+            >
+              View all insights &rarr;
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {topInsights.map((insight, i) => (
+              <div
+                key={i}
+                className="bg-bg-card rounded-xl border border-border-subtle p-4 hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5 transition-all"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-xl flex-shrink-0">{insight.icon}</span>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider font-medium text-text-muted block mb-1">
+                      {insight.type}
+                    </span>
+                    <p className="text-sm text-text-primary leading-relaxed">{insight.text}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -210,35 +279,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Top Insights */}
-      {topInsights.length > 0 && (
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-medium text-text-secondary">Key Insights</h2>
-            <Link
-              href={`/datasets/${latest.id}`}
-              className="text-xs text-accent hover:text-accent-hover"
-            >
-              View all insights &rarr;
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {topInsights.map((insight, i) => (
-              <div
-                key={i}
-                className="bg-bg-card rounded-xl border border-border-subtle p-4 hover:border-border-color transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-xl flex-shrink-0">{insight.icon}</span>
-                  <p className="text-sm text-text-primary leading-relaxed">{insight.text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Charts */}
+      {/* Charts - 2x2 grid */}
       <DashboardCharts
         chartData={chartData}
         labelCol={labelCol}
