@@ -6,6 +6,8 @@ A self-hosted data analytics dashboard built with Next.js. Upload CSV files, aut
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4)
 
+**[Live Demo](https://data-pipeline-dashboard-omega.vercel.app)**
+
 ## Features
 
 - **CSV Upload & Parsing** — Drag-and-drop or file picker with client-side CSV parsing. No external libraries needed.
