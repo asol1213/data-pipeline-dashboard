@@ -57,8 +57,8 @@ export default function ChartCard({
           </button>
         </div>
       </div>
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
+      <div style={{ width: "100%", minHeight: 300 }}>
+        <ResponsiveContainer width="100%" height={300}>
           {chartType === "bar" ? (
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />

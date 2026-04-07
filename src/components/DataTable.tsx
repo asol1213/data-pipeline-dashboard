@@ -2,11 +2,17 @@
 
 import { useState, useMemo } from "react";
 
+interface ColumnStatInfo {
+  mean: number;
+  stddev: number;
+}
+
 interface DataTableProps {
   headers: string[];
   rows: Record<string, string>[];
   columnTypes: Record<string, string>;
   anomalyIndices?: Record<string, number[]>;
+  columnStats?: Record<string, ColumnStatInfo>;
 }
 
 export default function DataTable({
@@ -14,6 +20,7 @@ export default function DataTable({
   rows,
   columnTypes,
   anomalyIndices = {},
+  columnStats = {},
 }: DataTableProps) {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -132,20 +139,27 @@ export default function DataTable({
                 >
                   {headers.map((h) => {
                     const anomaly = isAnomaly(h, origIdx);
+                    let deviations = "";
+                    if (anomaly && columnStats[h] && columnStats[h].stddev > 0) {
+                      const val = Number(row[h]);
+                      const dev = Math.abs(val - columnStats[h].mean) / columnStats[h].stddev;
+                      deviations = dev.toFixed(1);
+                    }
                     return (
                       <td
                         key={h}
                         className={`px-4 py-2.5 ${
                           anomaly
-                            ? "text-danger bg-danger-subtle font-medium"
+                            ? "text-danger font-medium"
                             : "text-text-primary"
                         }`}
-                        title={anomaly ? "Anomaly: >2 std deviations from mean" : undefined}
+                        style={anomaly ? { backgroundColor: "rgba(239, 68, 68, 0.15)" } : undefined}
+                        title={anomaly && deviations ? `Anomaly: ${deviations} standard deviations from mean` : anomaly ? "Anomaly: >2 std deviations from mean" : undefined}
                       >
                         {row[h]}
                         {anomaly && (
-                          <span className="ml-1.5 text-[10px] text-danger">
-                            !!
+                          <span className="ml-1.5 inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-danger/20 text-danger">
+                            {deviations ? `${deviations}\u03C3` : "!!"}
                           </span>
                         )}
                       </td>

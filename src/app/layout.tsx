@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { ThemeProvider } from "./theme-provider";
+import { ThemeToggle } from "./ThemeToggle";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,10 +30,19 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light')}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
+        <ThemeProvider>
         <nav className="border-b border-border-subtle bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
@@ -75,16 +86,18 @@ export default function RootLayout({
                 >
                   Upload CSV
                 </Link>
+                <ThemeToggle />
               </div>
             </div>
           </div>
         </nav>
         <main className="flex-1">{children}</main>
         <footer className="border-t border-border-subtle py-6 mt-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-text-muted">
+          <div className="mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-text-muted">
             Built by Andrew Arbo &middot; Data Pipeline Dashboard
           </div>
         </footer>
+        </ThemeProvider>
       </body>
     </html>
   );

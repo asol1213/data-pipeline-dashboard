@@ -15,7 +15,7 @@ export default function DashboardPage() {
 
   if (datasets.length === 0) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center py-24">
           <div className="w-16 h-16 rounded-2xl bg-accent-subtle mx-auto flex items-center justify-center mb-6">
             <svg
@@ -67,11 +67,15 @@ export default function DashboardPage() {
     dataset.headers.find((h) => dataset.columnTypes[h] === "string") ??
     dataset.headers[0];
 
-  // Build anomaly indices map
+  // Build anomaly indices map and column stats
   const anomalyIndices: Record<string, number[]> = {};
+  const columnStatsMap: Record<string, { mean: number; stddev: number }> = {};
   stats.columns.forEach((col) => {
     if (col.anomalyIndices && col.anomalyIndices.length > 0) {
       anomalyIndices[col.column] = col.anomalyIndices;
+    }
+    if (col.mean !== undefined && col.stddev !== undefined) {
+      columnStatsMap[col.column] = { mean: col.mean, stddev: col.stddev };
     }
   });
 
@@ -98,7 +102,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
@@ -217,6 +221,7 @@ export default function DashboardPage() {
           rows={dataset.rows}
           columnTypes={dataset.columnTypes}
           anomalyIndices={anomalyIndices}
+          columnStats={columnStatsMap}
         />
       </div>
     </div>

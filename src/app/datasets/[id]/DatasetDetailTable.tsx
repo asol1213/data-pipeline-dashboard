@@ -7,6 +7,7 @@ interface DatasetDetailTableProps {
   rows: Record<string, string>[];
   columnTypes: Record<string, string>;
   anomalyIndices: Record<string, number[]>;
+  columnStats?: Record<string, { mean: number; stddev: number }>;
 }
 
 export default function DatasetDetailTable({
@@ -14,6 +15,7 @@ export default function DatasetDetailTable({
   rows,
   columnTypes,
   anomalyIndices,
+  columnStats = {},
 }: DatasetDetailTableProps) {
   return (
     <DataTable
@@ -21,6 +23,7 @@ export default function DatasetDetailTable({
       rows={rows}
       columnTypes={columnTypes}
       anomalyIndices={anomalyIndices}
+      columnStats={columnStats}
     />
   );
 }

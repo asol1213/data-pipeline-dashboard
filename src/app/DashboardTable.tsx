@@ -7,6 +7,7 @@ interface DashboardTableProps {
   rows: Record<string, string>[];
   columnTypes: Record<string, string>;
   anomalyIndices: Record<string, number[]>;
+  columnStats?: Record<string, { mean: number; stddev: number }>;
 }
 
 export default function DashboardTable({
@@ -14,6 +15,7 @@ export default function DashboardTable({
   rows,
   columnTypes,
   anomalyIndices,
+  columnStats = {},
 }: DashboardTableProps) {
   return (
     <DataTable
@@ -21,6 +23,7 @@ export default function DashboardTable({
       rows={rows}
       columnTypes={columnTypes}
       anomalyIndices={anomalyIndices}
+      columnStats={columnStats}
     />
   );
 }

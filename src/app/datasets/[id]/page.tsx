@@ -5,6 +5,7 @@ import { computeDatasetStats } from "@/lib/stats";
 import KPICard from "@/components/KPICard";
 import DatasetDetailCharts from "./DatasetDetailCharts";
 import DatasetDetailTable from "./DatasetDetailTable";
+import CsvDownloadButton from "./CsvDownloadButton";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function DatasetDetailPage({
 
   if (!dataset) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
         <h1 className="text-xl font-semibold text-text-primary mb-2">
           Dataset Not Found
         </h1>
@@ -47,9 +48,13 @@ export default async function DatasetDetailPage({
     dataset.headers[0];
 
   const anomalyIndices: Record<string, number[]> = {};
+  const columnStatsMap: Record<string, { mean: number; stddev: number }> = {};
   stats.columns.forEach((col) => {
     if (col.anomalyIndices && col.anomalyIndices.length > 0) {
       anomalyIndices[col.column] = col.anomalyIndices;
+    }
+    if (col.mean !== undefined && col.stddev !== undefined) {
+      columnStatsMap[col.column] = { mean: col.mean, stddev: col.stddev };
     }
   });
 
@@ -76,7 +81,7 @@ export default async function DatasetDetailPage({
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
         <Link
@@ -85,15 +90,24 @@ export default async function DatasetDetailPage({
         >
           &larr; Back to datasets
         </Link>
-        <h1 className="text-2xl font-bold text-text-primary">{dataset.name}</h1>
-        <p className="text-sm text-text-muted mt-1">
-          {dataset.fileName} &middot; Uploaded{" "}
-          {new Date(dataset.uploadedAt).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">{dataset.name}</h1>
+            <p className="text-sm text-text-muted mt-1">
+              {dataset.fileName} &middot; Uploaded{" "}
+              {new Date(dataset.uploadedAt).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </p>
+          </div>
+          <CsvDownloadButton
+            headers={dataset.headers}
+            rows={dataset.rows}
+            fileName={dataset.fileName}
+          />
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -216,6 +230,7 @@ export default async function DatasetDetailPage({
           rows={dataset.rows}
           columnTypes={dataset.columnTypes}
           anomalyIndices={anomalyIndices}
+          columnStats={columnStatsMap}
         />
       </div>
     </div>
