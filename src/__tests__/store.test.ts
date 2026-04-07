@@ -21,10 +21,10 @@ function backupDatasets() {
   }
 }
 
+const SEED_META = JSON.stringify([{"id":"sales-q1-2026","name":"Sales Performance 2026","fileName":"sales-q1-2026.csv","uploadedAt":"2026-01-01T00:00:00Z","rowCount":12,"columnCount":6,"headers":["Month","Revenue","Customers","Churn_Rate","MRR","Support_Tickets"],"columnTypes":{"Month":"string","Revenue":"number","Customers":"number","Churn_Rate":"number","MRR":"number","Support_Tickets":"number"}}], null, 2);
+
 function restoreDatasets() {
-  if (originalContent !== null) {
-    fs.writeFileSync(DATASETS_FILE, originalContent, "utf-8");
-  }
+  fs.writeFileSync(DATASETS_FILE, originalContent || SEED_META, "utf-8");
   // Clean up test data files
   for (const id of testDatasetIds) {
     const dataFile = path.join(DATA_DIR, `${id}.json`);
