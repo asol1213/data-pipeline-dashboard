@@ -7,6 +7,10 @@ export default defineConfig({
     poolOptions: {
       forks: { singleFork: true },
     },
+    sequence: {
+      concurrent: false,
+    },
+    fileParallelism: false,
   },
   resolve: {
     alias: {
