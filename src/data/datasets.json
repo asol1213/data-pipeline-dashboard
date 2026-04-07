@@ -22,53 +22,5 @@
       "MRR": "number",
       "Support_Tickets": "number"
     }
-  },
-  {
-    "id": "__test_meta_1775574445649",
-    "name": "Test Dataset __test_meta_1775574445649",
-    "fileName": "test.csv",
-    "uploadedAt": "2026-04-07T15:07:25.649Z",
-    "rowCount": 2,
-    "columnCount": 2,
-    "headers": [
-      "a",
-      "b"
-    ],
-    "columnTypes": {
-      "a": "number",
-      "b": "string"
-    }
-  },
-  {
-    "id": "__test_meta_1775574451493",
-    "name": "Test Dataset __test_meta_1775574451493",
-    "fileName": "test.csv",
-    "uploadedAt": "2026-04-07T15:07:31.493Z",
-    "rowCount": 2,
-    "columnCount": 2,
-    "headers": [
-      "a",
-      "b"
-    ],
-    "columnTypes": {
-      "a": "number",
-      "b": "string"
-    }
-  },
-  {
-    "id": "__test_meta_1775574459016",
-    "name": "Test Dataset __test_meta_1775574459016",
-    "fileName": "test.csv",
-    "uploadedAt": "2026-04-07T15:07:39.016Z",
-    "rowCount": 2,
-    "columnCount": 2,
-    "headers": [
-      "a",
-      "b"
-    ],
-    "columnTypes": {
-      "a": "number",
-      "b": "string"
-    }
   }
 ]

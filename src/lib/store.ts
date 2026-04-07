@@ -34,8 +34,13 @@ function ensureDataDir() {
 
 export function getAllDatasets(): DatasetMeta[] {
   ensureDataDir();
-  const raw = fs.readFileSync(DATASETS_FILE, "utf-8");
-  return JSON.parse(raw);
+  try {
+    const raw = fs.readFileSync(DATASETS_FILE, "utf-8");
+    if (!raw.trim()) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
 }
 
 export function getDataset(id: string): DatasetFull | null {
@@ -43,11 +48,14 @@ export function getDataset(id: string): DatasetFull | null {
   const meta = datasets.find((d) => d.id === id);
   if (!meta) return null;
 
-  const dataFile = path.join(DATA_DIR, `${id}.json`);
-  if (!fs.existsSync(dataFile)) return null;
-
-  const rows = JSON.parse(fs.readFileSync(dataFile, "utf-8"));
-  return { ...meta, rows };
+  try {
+    const dataFile = path.join(DATA_DIR, `${id}.json`);
+    if (!fs.existsSync(dataFile)) return null;
+    const rows = JSON.parse(fs.readFileSync(dataFile, "utf-8"));
+    return { ...meta, rows };
+  } catch {
+    return null;
+  }
 }
 
 export function saveDataset(dataset: DatasetFull): void {
