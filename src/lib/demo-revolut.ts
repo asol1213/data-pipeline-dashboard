@@ -14,6 +14,15 @@ const FIRST_NAMES = [
   "Hans", "Greta", "Sven", "Freya", "Carlos", "Sofia", "Ahmed", "Fatima",
   "Kenji", "Yuki", "Wei", "Mei", "Raj", "Priya", "Marco", "Giulia",
   "Patrick", "Aoife", "Nikolai", "Elena", "Lars", "Ingrid", "Andrei", "Ioana",
+  "Felix", "Clara", "Tobias", "Katharina", "Moritz", "Leonie", "Jan", "Emilia",
+  "Philipp", "Johanna", "Julian", "Miriam", "Stefan", "Andrea", "Markus", "Sabine",
+  "Andreas", "Petra", "Frank", "Kerstin", "Matthias", "Stefanie", "Robert", "Melanie",
+  "Omar", "Aisha", "Yusuf", "Leila", "Hassan", "Nadia", "Arjun", "Meera",
+  "Chen", "Ling", "Zhang", "Xia", "Antoine", "Camille", "Hugo", "Manon",
+  "Luca", "Francesca", "Alessandro", "Valentina", "Diego", "Carmen", "Pablo", "Lucia",
+  "Richard", "Ashley", "Joseph", "Samantha", "George", "Megan", "Edward", "Lauren",
+  "Takashi", "Sakura", "Hiroshi", "Akiko", "Piotr", "Agnieszka", "Tomasz", "Magdalena",
+  "Marek", "Ewa", "Krzysztof", "Katarzyna", "Simon", "Amelie", "Max", "Lena",
 ] as const;
 
 const LAST_NAMES = [
@@ -27,585 +36,401 @@ const LAST_NAMES = [
   "Ivanov", "Johansson", "Lindberg", "Nielsen", "Christensen",
   "O'Brien", "Murphy", "McCarthy", "Fernandez", "Torres", "Al-Rashid",
   "El-Amin", "Kovacs", "Novak", "Popov", "Sato", "Kim", "Park",
+  "Schulz", "Koch", "Richter", "Wolf", "Klein", "Schroeder", "Neumann",
+  "Schwarz", "Braun", "Krueger", "Werner", "Lange", "Hartmann", "Fuchs",
+  "Kelly", "Walsh", "Ryan", "Byrne", "Doyle", "Gallagher",
+  "Bernard", "Petit", "Richard", "Durand", "Bianchi", "Romano", "Ricci",
+  "Gonzalez", "Lopez", "Hernandez", "Perez", "Sanchez", "Ramirez",
+  "Suzuki", "Watanabe", "Takahashi", "Ito", "Yamamoto", "Kobayashi",
+  "Nowak", "Kowalski", "Wozniak", "Lewandowski", "Kaminski", "Zielinski",
+  "Al-Farsi", "Hassan", "Ibrahim", "Khalil", "Mansour", "Nasser", "Saleh",
+  "Patel", "Sharma", "Gupta", "Agarwal", "Mehta", "Joshi",
+  "Zhang", "Liu", "Yang", "Huang", "Zhou", "Wu",
 ] as const;
 
-const COUNTRIES_REV = [
-  "UK", "Germany", "France", "Spain", "Italy", "Netherlands", "Belgium",
-  "Ireland", "Poland", "Romania", "Czech Republic", "Sweden", "Denmark",
-  "Norway", "Finland", "Portugal", "Austria", "Switzerland", "Greece",
-  "Lithuania", "Latvia", "Estonia", "Bulgaria", "Hungary", "Croatia",
-  "US", "Singapore", "Japan", "Australia", "UAE",
-] as const;
+// ── Product definitions ──
 
-const COUNTRY_REGION: Record<string, string> = {
-  "UK": "UK", "Ireland": "UK",
-  "Germany": "EU_West", "France": "EU_West", "Spain": "EU_West",
-  "Italy": "EU_West", "Netherlands": "EU_West", "Belgium": "EU_West",
-  "Austria": "EU_West", "Switzerland": "EU_West", "Portugal": "EU_West", "Greece": "EU_West",
-  "Poland": "EU_East", "Romania": "EU_East", "Czech Republic": "EU_East",
-  "Lithuania": "EU_East", "Latvia": "EU_East", "Estonia": "EU_East",
-  "Bulgaria": "EU_East", "Hungary": "EU_East", "Croatia": "EU_East",
-  "Sweden": "Nordics", "Denmark": "Nordics", "Norway": "Nordics", "Finland": "Nordics",
-  "US": "US",
-  "Singapore": "APAC", "Japan": "APAC", "Australia": "APAC",
-  "UAE": "MENA",
-};
+interface ProductDef {
+  id: string;
+  name: string;
+  category: string;
+  monthlyFee: number;
+  txnFeePct: number;
+  launchDate: string;
+  activeUsers: number;
+  revenueContrib: number;
+}
 
-const MERCHANT_CATEGORIES = [
-  "Groceries", "Restaurants", "Transport", "Online Shopping", "Entertainment",
-  "Travel", "Utilities", "Healthcare", "Education", "Subscriptions",
-  "Electronics", "Fashion", "Home & Garden", "Sports", "Financial Services",
-] as const;
+const PRODUCT_DEFS: ProductDef[] = [
+  { id: "RP-01", name: "Standard Card", category: "Payments", monthlyFee: 0, txnFeePct: 0.005, launchDate: "2015-07-01", activeUsers: 520000, revenueContrib: 15 },
+  { id: "RP-02", name: "Premium Card", category: "Payments", monthlyFee: 7.99, txnFeePct: 0.008, launchDate: "2017-03-15", activeUsers: 180000, revenueContrib: 22 },
+  { id: "RP-03", name: "Metal Card", category: "Payments", monthlyFee: 13.99, txnFeePct: 0.01, launchDate: "2018-06-01", activeUsers: 85000, revenueContrib: 18 },
+  { id: "RP-04", name: "Crypto Trade", category: "Trading", monthlyFee: 0, txnFeePct: 0.025, launchDate: "2018-01-10", activeUsers: 140000, revenueContrib: 12 },
+  { id: "RP-05", name: "Stock Trade", category: "Trading", monthlyFee: 0, txnFeePct: 0.015, launchDate: "2019-08-20", activeUsers: 95000, revenueContrib: 8 },
+  { id: "RP-06", name: "Insurance", category: "Insurance", monthlyFee: 0, txnFeePct: 0.03, launchDate: "2020-02-01", activeUsers: 60000, revenueContrib: 10 },
+  { id: "RP-07", name: "Vault", category: "Banking", monthlyFee: 0, txnFeePct: 0.005, launchDate: "2017-09-01", activeUsers: 300000, revenueContrib: 5 },
+  { id: "RP-08", name: "Send Money", category: "Payments", monthlyFee: 0, txnFeePct: 0.008, launchDate: "2015-07-01", activeUsers: 680000, revenueContrib: 10 },
+];
 
-const ACCOUNT_MANAGERS = [
-  "Sarah Mitchell", "Thomas Weber", "Marie Dubois", "James O'Connor",
-  "Katarina Novak", "Lars Johansson", "Elena Petrov", "Marco Rossi",
-  "Priya Kumar", "David Chen",
-] as const;
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// ──────────────────────────────────────────────────────────────────────────────
-// REVOLUT DATA GENERATOR
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── Main generator ─────────────────────────────────────────────────────────
 
 export function generateRevolutData(): DemoTable[] {
-  const rng = new SeededRandom(42_001);
+  const rng = new SeededRandom(777_001);
 
-  // ── 1. rev_products (15 rows) ──
-  const products = generateRevProducts();
+  // ── Products (8 rows) ──
+  const products: Record<string, string>[] = PRODUCT_DEFS.map((p) => ({
+    Product_ID: p.id,
+    Product_Name: p.name,
+    Category: p.category,
+    Monthly_Fee: nf(p.monthlyFee),
+    Transaction_Fee_Pct: nf(p.txnFeePct, 3),
+    Launch_Date: p.launchDate,
+    Active_Users: n(p.activeUsers),
+    Revenue_Contribution_Pct: n(p.revenueContrib),
+  }));
 
-  // ── 2. rev_customers (200 rows) ──
-  const customers = generateRevCustomers(rng);
+  // ── Customers (200 rows) ──
+  const countries = ["Germany", "UK", "France", "Ireland", "UAE", "Poland", "Spain", "Italy", "Netherlands", "Austria"] as const;
+  const plans = ["Standard", "Plus", "Premium", "Metal", "Business"] as const;
+  const planFees: Record<string, number> = { Standard: 0, Plus: 2.99, Premium: 7.99, Metal: 13.99, Business: 25 };
+  const ageGroups = ["18-24", "25-34", "35-44", "45-54", "55+"] as const;
+  const kycStatuses = ["Verified", "Pending", "Enhanced Due Diligence"] as const;
 
-  // ── 3. rev_transactions (500 rows) ──
-  const transactions = generateRevTransactions(rng, customers, products);
+  const customers: Record<string, string>[] = [];
+  for (let i = 1; i <= 200; i++) {
+    const cid = `RC-${String(i).padStart(3, "0")}`;
+    const plan = rng.pickWeighted(plans, [35, 25, 20, 12, 8]);
+    const country = rng.pick(countries);
+    const signupDate = rng.dateInRange("2020-01-01", "2025-06-30");
+    const nps = rng.nextInt(1, 10);
+    const churn = nps <= 3 ? "High" : nps <= 6 ? "Medium" : "Low";
+    customers.push({
+      Customer_ID: cid,
+      Name: `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`,
+      Signup_Date: signupDate,
+      Plan: plan,
+      Monthly_Fee: nf(planFees[plan]),
+      Country: country,
+      Age_Group: rng.pick(ageGroups),
+      KYC_Status: rng.pickWeighted(kycStatuses, [80, 12, 8]),
+      Lifetime_Value: "0", // filled after transactions
+      Churn_Risk: churn,
+      NPS_Score: n(nps),
+    });
+  }
 
-  // ── 4. rev_monthly_kpis (24 rows) ──
-  const monthlyKpis = generateRevMonthlyKpis(rng);
+  // ── Transactions (500 rows) ──
+  const currencies = ["EUR", "USD", "GBP", "CHF", "AED"] as const;
+  const channels = ["App", "Web", "API", "POS"] as const;
+  const statuses = ["Completed", "Pending", "Failed", "Refunded"] as const;
 
-  // ── 5. rev_pl_monthly (24 rows) ──
-  const plMonthly = generateRevPLMonthly(rng);
+  const transactions: Record<string, string>[] = [];
+  const customerRevenue: Record<string, number> = {};
 
-  // ── 6. rev_regional (~192 rows = 8 regions x 24 months) ──
-  const regional = generateRevRegional(rng);
+  for (let i = 1; i <= 500; i++) {
+    const tid = `TXN-${String(i).padStart(5, "0")}`;
+    const date = rng.dateInRange("2024-01-01", "2025-12-31");
+    const custIdx = rng.nextInt(0, 199);
+    const cid = customers[custIdx].Customer_ID;
+    const prod = rng.pick(PRODUCT_DEFS);
+    const amount = rng.nextFloat(0.50, 15000, 2);
+    const currency = rng.pick(currencies);
+    const feeRevenue = parseFloat((amount * prod.txnFeePct).toFixed(2));
+    const costFactor = 0.3 + rng.next() * 0.3;
+    const cost = parseFloat((feeRevenue * costFactor).toFixed(2));
+    const country = customers[custIdx].Country;
+    const channel = rng.pickWeighted(channels, [55, 20, 15, 10]);
+    const status = rng.pickWeighted(statuses, [85, 7, 5, 3]);
+    const riskScore = rng.nextInt(1, 100);
 
-  // ── 7. rev_cost_centers (120 rows = 10 depts x 12 months) ──
-  const costCenters = generateRevCostCenters(rng);
+    if (status === "Completed") {
+      customerRevenue[cid] = (customerRevenue[cid] || 0) + feeRevenue;
+    }
 
+    transactions.push({
+      Transaction_ID: tid,
+      Date: date,
+      Customer_ID: cid,
+      Product: prod.name,
+      Amount: nf(amount),
+      Currency: currency,
+      Fee_Revenue: nf(feeRevenue),
+      Cost: nf(cost),
+      Country: country,
+      Channel: channel,
+      Status: status,
+      Risk_Score: n(riskScore),
+    });
+  }
+
+  // Back-fill Lifetime_Value on customers
+  for (const c of customers) {
+    const txnRev = customerRevenue[c.Customer_ID] || 0;
+    const monthsSinceSignup = Math.max(
+      1,
+      Math.round(
+        (new Date("2025-12-31").getTime() - new Date(c.Signup_Date).getTime()) /
+          (30.44 * 24 * 3600 * 1000),
+      ),
+    );
+    const subRev = parseFloat(c.Monthly_Fee) * monthsSinceSignup;
+    c.Lifetime_Value = nf(txnRev + subRev);
+  }
+
+  // ── Monthly KPIs (24 rows: Jan 2024 - Dec 2025) ──
+  const monthlyKpis: Record<string, string>[] = [];
+  const kpiRng = new SeededRandom(777_002);
+  let mau = 800_000;
+  for (let yr = 2024; yr <= 2025; yr++) {
+    for (let m = 1; m <= 12; m++) {
+      const monthLabel = `${MONTH_NAMES[m - 1]} ${yr}`;
+      mau = Math.round(mau * (1 + kpiRng.nextFloat(0.005, 0.025)));
+      const dau = Math.round(mau * kpiRng.nextFloat(0.35, 0.45));
+      const newSignups = kpiRng.nextInt(15000, 35000);
+      const churned = kpiRng.nextInt(2000, 8000);
+      const mrr = Math.round(mau * 0.35 * 6.5);
+      const txnRevenue = kpiRng.nextInt(1_200_000, 2_800_000);
+      const totalRevenue = mrr + txnRevenue;
+      const cogs = Math.round(totalRevenue * kpiRng.nextFloat(0.25, 0.35));
+      const grossMargin = parseFloat(
+        (((totalRevenue - cogs) / totalRevenue) * 100).toFixed(1),
+      );
+      const opex = Math.round(totalRevenue * kpiRng.nextFloat(0.45, 0.60));
+      const ebitda = totalRevenue - cogs - opex;
+      const netIncome = Math.round(ebitda * kpiRng.nextFloat(0.60, 0.80));
+      const cac = kpiRng.nextFloat(15, 35);
+      const ltv = kpiRng.nextFloat(150, 400);
+      const ltvCacRatio = parseFloat((ltv / cac).toFixed(1));
+
+      monthlyKpis.push({
+        Month: monthLabel,
+        MAU: n(mau),
+        DAU: n(dau),
+        New_Signups: n(newSignups),
+        Churned_Users: n(churned),
+        MRR: n(mrr),
+        Transaction_Revenue: n(txnRevenue),
+        Total_Revenue: n(totalRevenue),
+        COGS: n(cogs),
+        Gross_Margin_Pct: nf(grossMargin, 1),
+        Operating_Expenses: n(opex),
+        EBITDA: n(ebitda),
+        Net_Income: n(netIncome),
+        CAC: nf(cac),
+        LTV: nf(ltv),
+        LTV_CAC_Ratio: nf(ltvCacRatio, 1),
+      });
+    }
+  }
+
+  // ── P&L (24 rows) ──
+  const pnl: Record<string, string>[] = [];
+  const pnlRng = new SeededRandom(777_003);
+  for (let yr = 2024; yr <= 2025; yr++) {
+    for (let m = 1; m <= 12; m++) {
+      const monthLabel = `${MONTH_NAMES[m - 1]} ${yr}`;
+      const interchangeRev = pnlRng.nextInt(900_000, 1_500_000);
+      const subscriptionRev = pnlRng.nextInt(1_200_000, 2_200_000);
+      const tradingRev = pnlRng.nextInt(400_000, 900_000);
+      const insuranceRev = pnlRng.nextInt(150_000, 400_000);
+      const otherRev = pnlRng.nextInt(50_000, 200_000);
+      const totalRev = interchangeRev + subscriptionRev + tradingRev + insuranceRev + otherRev;
+
+      const paymentProcessing = Math.round(totalRev * pnlRng.nextFloat(0.08, 0.12));
+      const cardIssuance = pnlRng.nextInt(80_000, 200_000);
+      const compliance = pnlRng.nextInt(150_000, 350_000);
+      const techInfra = pnlRng.nextInt(300_000, 600_000);
+      const salaries = pnlRng.nextInt(800_000, 1_400_000);
+      const marketing = pnlRng.nextInt(250_000, 600_000);
+      const totalCosts = paymentProcessing + cardIssuance + compliance + techInfra + salaries + marketing;
+
+      const ebitda = totalRev - totalCosts;
+      const ebitdaMargin = parseFloat(((ebitda / totalRev) * 100).toFixed(1));
+      const depreciation = pnlRng.nextInt(50_000, 120_000);
+      const tax = Math.max(0, Math.round((ebitda - depreciation) * 0.25));
+      const netIncome = ebitda - depreciation - tax;
+
+      pnl.push({
+        Month: monthLabel,
+        Interchange_Revenue: n(interchangeRev),
+        Subscription_Revenue: n(subscriptionRev),
+        Trading_Revenue: n(tradingRev),
+        Insurance_Revenue: n(insuranceRev),
+        Other_Revenue: n(otherRev),
+        Total_Revenue: n(totalRev),
+        Payment_Processing_Costs: n(paymentProcessing),
+        Card_Issuance_Costs: n(cardIssuance),
+        Compliance_Costs: n(compliance),
+        Technology_Infrastructure: n(techInfra),
+        Salaries: n(salaries),
+        Marketing: n(marketing),
+        Total_Costs: n(totalCosts),
+        EBITDA: n(ebitda),
+        EBITDA_Margin_Pct: nf(ebitdaMargin, 1),
+        Depreciation: n(depreciation),
+        Tax: n(tax),
+        Net_Income: n(netIncome),
+      });
+    }
+  }
+
+  // ── Compliance events (200 rows) ──
+  const complianceEvents: Record<string, string>[] = [];
+  const compRng = new SeededRandom(777_004);
+  const eventTypes = ["KYC Check", "AML Alert", "SAR Filed", "Account Frozen", "Enhanced Review"] as const;
+  const riskLevels = ["Low", "Medium", "High", "Critical"] as const;
+  const compStatuses = ["Open", "Resolved", "Escalated"] as const;
+  const regulatoryBodies = ["BaFin", "FCA", "CBI"] as const;
+
+  for (let i = 1; i <= 200; i++) {
+    const eid = `CE-${String(i).padStart(4, "0")}`;
+    const custIdx = compRng.nextInt(0, 199);
+    const cid = customers[custIdx].Customer_ID;
+    const evtType = compRng.pickWeighted(eventTypes, [40, 25, 10, 8, 17]);
+    const risk =
+      evtType === "SAR Filed" || evtType === "Account Frozen"
+        ? compRng.pickWeighted(riskLevels, [5, 15, 40, 40])
+        : compRng.pickWeighted(riskLevels, [40, 30, 20, 10]);
+    const status = compRng.pickWeighted(compStatuses, [20, 65, 15]);
+    const resDays =
+      status === "Resolved"
+        ? compRng.nextInt(1, 30)
+        : status === "Escalated"
+          ? compRng.nextInt(15, 90)
+          : compRng.nextInt(0, 5);
+
+    complianceEvents.push({
+      Event_ID: eid,
+      Customer_ID: cid,
+      Date: compRng.dateInRange("2024-01-01", "2025-12-31"),
+      Event_Type: evtType,
+      Risk_Level: risk,
+      Status: status,
+      Resolution_Days: n(resDays),
+      Regulatory_Body: compRng.pick(regulatoryBodies),
+    });
+  }
+
+  // ── Cost Centers (10 rows) ──
+  const costCenterDefs = [
+    { dept: "Engineering", hc: 120, budget: 18_000_000 },
+    { dept: "Product", hc: 35, budget: 5_200_000 },
+    { dept: "Compliance", hc: 45, budget: 7_800_000 },
+    { dept: "Marketing", hc: 40, budget: 8_500_000 },
+    { dept: "Operations", hc: 60, budget: 6_000_000 },
+    { dept: "Customer Support", hc: 85, budget: 5_100_000 },
+    { dept: "Finance", hc: 25, budget: 3_800_000 },
+    { dept: "Legal", hc: 18, budget: 3_200_000 },
+    { dept: "HR", hc: 15, budget: 2_400_000 },
+    { dept: "Data Science", hc: 30, budget: 5_500_000 },
+  ];
+  const ccRng = new SeededRandom(777_005);
+  const costCenters: Record<string, string>[] = costCenterDefs.map((cc) => {
+    const q1 = Math.round(cc.budget * 0.25 * ccRng.nextFloat(0.9, 1.1));
+    const q2 = Math.round(cc.budget * 0.25 * ccRng.nextFloat(0.9, 1.1));
+    const q3 = Math.round(cc.budget * 0.25 * ccRng.nextFloat(0.9, 1.1));
+    const q4 = Math.round(cc.budget * 0.25 * ccRng.nextFloat(0.9, 1.1));
+    const annualActual = q1 + q2 + q3 + q4;
+    const variance = annualActual - cc.budget;
+    const costPerHead = Math.round(annualActual / cc.hc);
+    return {
+      Department: cc.dept,
+      Headcount: n(cc.hc),
+      Annual_Budget: n(cc.budget),
+      Q1_Actual: n(q1),
+      Q2_Actual: n(q2),
+      Q3_Actual: n(q3),
+      Q4_Actual: n(q4),
+      Annual_Actual: n(annualActual),
+      Variance: n(variance),
+      Cost_per_Head: n(costPerHead),
+    };
+  });
+
+  // ── Assemble all tables ──
   return [
     {
       id: "rev_transactions",
-      name: "Revolut — Transactions",
+      name: "Revolut Transactions",
       rows: transactions,
-      headers: [
-        "Transaction_ID", "Date", "Customer_ID", "Product_Type", "Transaction_Type",
-        "Amount", "Currency", "FX_Rate", "Amount_EUR", "Fee_Amount", "Status",
-        "Country", "Merchant_Category", "Channel",
-      ],
+      headers: ["Transaction_ID", "Date", "Customer_ID", "Product", "Amount", "Currency", "Fee_Revenue", "Cost", "Country", "Channel", "Status", "Risk_Score"],
       columnTypes: {
-        Transaction_ID: "string", Date: "date", Customer_ID: "string",
-        Product_Type: "string", Transaction_Type: "string", Amount: "number",
-        Currency: "string", FX_Rate: "number", Amount_EUR: "number",
-        Fee_Amount: "number", Status: "string", Country: "string",
-        Merchant_Category: "string", Channel: "string",
+        Transaction_ID: "string", Date: "date", Customer_ID: "string", Product: "string",
+        Amount: "number", Currency: "string", Fee_Revenue: "number", Cost: "number",
+        Country: "string", Channel: "string", Status: "string", Risk_Score: "number",
       },
     },
     {
       id: "rev_customers",
-      name: "Revolut — Customers",
+      name: "Revolut Customers",
       rows: customers,
-      headers: [
-        "Customer_ID", "Name", "Segment", "Country", "Registration_Date",
-        "KYC_Status", "Last_Active", "Lifetime_Value", "Monthly_Volume",
-        "Risk_Score", "Account_Manager",
-      ],
+      headers: ["Customer_ID", "Name", "Signup_Date", "Plan", "Monthly_Fee", "Country", "Age_Group", "KYC_Status", "Lifetime_Value", "Churn_Risk", "NPS_Score"],
       columnTypes: {
-        Customer_ID: "string", Name: "string", Segment: "string",
-        Country: "string", Registration_Date: "date", KYC_Status: "string",
-        Last_Active: "date", Lifetime_Value: "number", Monthly_Volume: "number",
-        Risk_Score: "number", Account_Manager: "string",
-      },
-    },
-    {
-      id: "rev_products",
-      name: "Revolut — Products",
-      rows: products,
-      headers: [
-        "Product_ID", "Product_Name", "Category", "Monthly_Fee",
-        "Revenue_Per_User", "Margin_%", "Launch_Date", "Status",
-      ],
-      columnTypes: {
-        Product_ID: "string", Product_Name: "string", Category: "string",
-        Monthly_Fee: "number", Revenue_Per_User: "number", "Margin_%": "number",
-        Launch_Date: "date", Status: "string",
+        Customer_ID: "string", Name: "string", Signup_Date: "date", Plan: "string",
+        Monthly_Fee: "number", Country: "string", Age_Group: "string", KYC_Status: "string",
+        Lifetime_Value: "number", Churn_Risk: "string", NPS_Score: "number",
       },
     },
     {
       id: "rev_monthly_kpis",
-      name: "Revolut — Monthly KPIs",
+      name: "Revolut Monthly KPIs",
       rows: monthlyKpis,
-      headers: [
-        "Month", "MAU", "DAU", "New_Signups", "Churn_Rate_%", "MRR", "ARR",
-        "ARPU", "CAC", "LTV", "LTV_CAC_Ratio", "NPS_Score", "App_Rating",
-        "Transaction_Volume", "Gross_Margin_%", "OpEx", "Net_Income",
-        "Headcount", "Revenue_Per_Employee",
-      ],
+      headers: ["Month", "MAU", "DAU", "New_Signups", "Churned_Users", "MRR", "Transaction_Revenue", "Total_Revenue", "COGS", "Gross_Margin_Pct", "Operating_Expenses", "EBITDA", "Net_Income", "CAC", "LTV", "LTV_CAC_Ratio"],
       columnTypes: {
-        Month: "date", MAU: "number", DAU: "number", New_Signups: "number",
-        "Churn_Rate_%": "number", MRR: "number", ARR: "number", ARPU: "number",
-        CAC: "number", LTV: "number", LTV_CAC_Ratio: "number", NPS_Score: "number",
-        App_Rating: "number", Transaction_Volume: "number", "Gross_Margin_%": "number",
-        OpEx: "number", Net_Income: "number", Headcount: "number",
-        Revenue_Per_Employee: "number",
+        Month: "string", MAU: "number", DAU: "number", New_Signups: "number",
+        Churned_Users: "number", MRR: "number", Transaction_Revenue: "number",
+        Total_Revenue: "number", COGS: "number", Gross_Margin_Pct: "number",
+        Operating_Expenses: "number", EBITDA: "number", Net_Income: "number",
+        CAC: "number", LTV: "number", LTV_CAC_Ratio: "number",
       },
     },
     {
-      id: "rev_pl_monthly",
-      name: "Revolut — P&L Monthly",
-      rows: plMonthly,
-      headers: [
-        "Month", "Revenue", "Interchange_Revenue", "Subscription_Revenue",
-        "Trading_Revenue", "FX_Revenue", "Other_Revenue", "COGS", "Gross_Profit",
-        "Gross_Margin_%", "Sales_Marketing", "Technology", "Operations", "G_A",
-        "Total_OpEx", "EBITDA", "EBITDA_Margin_%", "D_A", "EBIT", "Interest",
-        "Tax", "Net_Income", "Net_Margin_%",
-      ],
+      id: "rev_pnl",
+      name: "Revolut P&L (Monthly)",
+      rows: pnl,
+      headers: ["Month", "Interchange_Revenue", "Subscription_Revenue", "Trading_Revenue", "Insurance_Revenue", "Other_Revenue", "Total_Revenue", "Payment_Processing_Costs", "Card_Issuance_Costs", "Compliance_Costs", "Technology_Infrastructure", "Salaries", "Marketing", "Total_Costs", "EBITDA", "EBITDA_Margin_Pct", "Depreciation", "Tax", "Net_Income"],
       columnTypes: {
-        Month: "date", Revenue: "number", Interchange_Revenue: "number",
-        Subscription_Revenue: "number", Trading_Revenue: "number",
-        FX_Revenue: "number", Other_Revenue: "number", COGS: "number",
-        Gross_Profit: "number", "Gross_Margin_%": "number",
-        Sales_Marketing: "number", Technology: "number", Operations: "number",
-        G_A: "number", Total_OpEx: "number", EBITDA: "number",
-        "EBITDA_Margin_%": "number", D_A: "number", EBIT: "number",
-        Interest: "number", Tax: "number", Net_Income: "number",
-        "Net_Margin_%": "number",
+        Month: "string", Interchange_Revenue: "number", Subscription_Revenue: "number",
+        Trading_Revenue: "number", Insurance_Revenue: "number", Other_Revenue: "number",
+        Total_Revenue: "number", Payment_Processing_Costs: "number", Card_Issuance_Costs: "number",
+        Compliance_Costs: "number", Technology_Infrastructure: "number", Salaries: "number",
+        Marketing: "number", Total_Costs: "number", EBITDA: "number",
+        EBITDA_Margin_Pct: "number", Depreciation: "number", Tax: "number", Net_Income: "number",
       },
     },
     {
-      id: "rev_regional",
-      name: "Revolut — Regional Breakdown",
-      rows: regional,
-      headers: [
-        "Month", "Region", "Revenue", "Customers", "Growth_YoY_%",
-        "Market_Share_%", "Regulatory_Status",
-      ],
+      id: "rev_products",
+      name: "Revolut Products",
+      rows: products,
+      headers: ["Product_ID", "Product_Name", "Category", "Monthly_Fee", "Transaction_Fee_Pct", "Launch_Date", "Active_Users", "Revenue_Contribution_Pct"],
       columnTypes: {
-        Month: "date", Region: "string", Revenue: "number",
-        Customers: "number", "Growth_YoY_%": "number",
-        "Market_Share_%": "number", Regulatory_Status: "string",
+        Product_ID: "string", Product_Name: "string", Category: "string",
+        Monthly_Fee: "number", Transaction_Fee_Pct: "number", Launch_Date: "date",
+        Active_Users: "number", Revenue_Contribution_Pct: "number",
+      },
+    },
+    {
+      id: "rev_compliance",
+      name: "Revolut Compliance (KYC/AML)",
+      rows: complianceEvents,
+      headers: ["Event_ID", "Customer_ID", "Date", "Event_Type", "Risk_Level", "Status", "Resolution_Days", "Regulatory_Body"],
+      columnTypes: {
+        Event_ID: "string", Customer_ID: "string", Date: "date", Event_Type: "string",
+        Risk_Level: "string", Status: "string", Resolution_Days: "number", Regulatory_Body: "string",
       },
     },
     {
       id: "rev_cost_centers",
-      name: "Revolut — Cost Centers",
+      name: "Revolut Cost Centers",
       rows: costCenters,
-      headers: [
-        "Month", "Department", "Budget", "Actual", "Variance",
-        "Variance_%", "Headcount", "Cost_Per_Head", "Key_Initiative",
-      ],
+      headers: ["Department", "Headcount", "Annual_Budget", "Q1_Actual", "Q2_Actual", "Q3_Actual", "Q4_Actual", "Annual_Actual", "Variance", "Cost_per_Head"],
       columnTypes: {
-        Month: "date", Department: "string", Budget: "number",
-        Actual: "number", Variance: "number", "Variance_%": "number",
-        Headcount: "number", Cost_Per_Head: "number", Key_Initiative: "string",
+        Department: "string", Headcount: "number", Annual_Budget: "number",
+        Q1_Actual: "number", Q2_Actual: "number", Q3_Actual: "number", Q4_Actual: "number",
+        Annual_Actual: "number", Variance: "number", Cost_per_Head: "number",
       },
     },
   ];
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// TABLE GENERATORS
-// ──────────────────────────────────────────────────────────────────────────────
-
-function generateRevProducts(): Record<string, string>[] {
-  return [
-    { Product_ID: "RP-01", Product_Name: "Standard Account", Category: "Cards", Monthly_Fee: "0", Revenue_Per_User: nf(1.20), "Margin_%": nf(42.0), Launch_Date: "2015-07-01", Status: "Active" },
-    { Product_ID: "RP-02", Product_Name: "Plus Plan", Category: "Cards", Monthly_Fee: nf(3.99), Revenue_Per_User: nf(5.80), "Margin_%": nf(68.0), Launch_Date: "2019-03-15", Status: "Active" },
-    { Product_ID: "RP-03", Product_Name: "Premium Plan", Category: "Cards", Monthly_Fee: nf(7.99), Revenue_Per_User: nf(12.40), "Margin_%": nf(72.0), Launch_Date: "2017-08-01", Status: "Active" },
-    { Product_ID: "RP-04", Product_Name: "Metal Plan", Category: "Cards", Monthly_Fee: nf(15.99), Revenue_Per_User: nf(24.60), "Margin_%": nf(76.0), Launch_Date: "2018-06-15", Status: "Active" },
-    { Product_ID: "RP-05", Product_Name: "Revolut Business", Category: "Business", Monthly_Fee: nf(25.00), Revenue_Per_User: nf(42.30), "Margin_%": nf(64.0), Launch_Date: "2017-04-01", Status: "Active" },
-    { Product_ID: "RP-06", Product_Name: "Crypto Trading", Category: "Crypto", Monthly_Fee: "0", Revenue_Per_User: nf(8.90), "Margin_%": nf(82.0), Launch_Date: "2017-12-01", Status: "Active" },
-    { Product_ID: "RP-07", Product_Name: "Stock Trading", Category: "Trading", Monthly_Fee: "0", Revenue_Per_User: nf(6.20), "Margin_%": nf(78.0), Launch_Date: "2019-08-01", Status: "Active" },
-    { Product_ID: "RP-08", Product_Name: "Commodities Trading", Category: "Trading", Monthly_Fee: "0", Revenue_Per_User: nf(4.50), "Margin_%": nf(75.0), Launch_Date: "2020-03-15", Status: "Active" },
-    { Product_ID: "RP-09", Product_Name: "Travel Insurance", Category: "Insurance", Monthly_Fee: "0", Revenue_Per_User: nf(3.10), "Margin_%": nf(35.0), Launch_Date: "2019-06-01", Status: "Active" },
-    { Product_ID: "RP-10", Product_Name: "Device Insurance", Category: "Insurance", Monthly_Fee: nf(6.99), Revenue_Per_User: nf(7.80), "Margin_%": nf(28.0), Launch_Date: "2020-11-01", Status: "Active" },
-    { Product_ID: "RP-11", Product_Name: "Savings Vaults", Category: "Savings", Monthly_Fee: "0", Revenue_Per_User: nf(2.40), "Margin_%": nf(45.0), Launch_Date: "2018-02-01", Status: "Active" },
-    { Product_ID: "RP-12", Product_Name: "Revolut Pay", Category: "Payments", Monthly_Fee: "0", Revenue_Per_User: nf(1.80), "Margin_%": nf(52.0), Launch_Date: "2022-09-01", Status: "Active" },
-    { Product_ID: "RP-13", Product_Name: "Revolut Ultra", Category: "Cards", Monthly_Fee: nf(45.00), Revenue_Per_User: nf(58.20), "Margin_%": nf(71.0), Launch_Date: "2023-06-01", Status: "Active" },
-    { Product_ID: "RP-14", Product_Name: "Junior Account", Category: "Cards", Monthly_Fee: "0", Revenue_Per_User: nf(0.80), "Margin_%": nf(18.0), Launch_Date: "2020-03-01", Status: "Active" },
-    { Product_ID: "RP-15", Product_Name: "Revolut X (Exchange)", Category: "Crypto", Monthly_Fee: "0", Revenue_Per_User: nf(14.60), "Margin_%": nf(85.0), Launch_Date: "2024-05-01", Status: "Beta" },
-  ];
-}
-
-function generateRevCustomers(rng: SeededRandom): Record<string, string>[] {
-  const segments = ["Free", "Plus", "Premium", "Metal", "Business"] as const;
-  const segmentWeights = [45, 20, 18, 10, 7];
-  const kycStatuses = ["Verified", "Pending", "Rejected"] as const;
-  const kycWeights = [88, 9, 3];
-
-  const rows: Record<string, string>[] = [];
-  for (let i = 0; i < 200; i++) {
-    const cid = `RC-${String(i + 1).padStart(4, "0")}`;
-    const firstName = rng.pick(FIRST_NAMES);
-    const lastName = rng.pick(LAST_NAMES);
-    const segment = rng.pickWeighted(segments, segmentWeights);
-    const country = rng.pick(COUNTRIES_REV);
-    const regDate = rng.dateInRange("2019-01-01", "2025-06-30");
-    const kycStatus = rng.pickWeighted(kycStatuses, kycWeights);
-    const lastActive = rng.dateInRange("2024-10-01", "2025-12-31");
-
-    // LTV varies dramatically by segment
-    const ltvBase: Record<string, [number, number]> = {
-      Free: [5, 120], Plus: [80, 450], Premium: [200, 1200],
-      Metal: [500, 3500], Business: [800, 8000],
-    };
-    const [ltvMin, ltvMax] = ltvBase[segment];
-    const ltv = rng.nextFloat(ltvMin, ltvMax, 2);
-
-    // Monthly volume
-    const volBase: Record<string, [number, number]> = {
-      Free: [50, 2000], Plus: [500, 8000], Premium: [1000, 25000],
-      Metal: [3000, 80000], Business: [5000, 500000],
-    };
-    const [volMin, volMax] = volBase[segment];
-    const monthlyVol = rng.nextInt(volMin, volMax);
-
-    const riskScore = rng.nextInt(1, 100);
-
-    rows.push({
-      Customer_ID: cid,
-      Name: `${firstName} ${lastName}`,
-      Segment: segment,
-      Country: country,
-      Registration_Date: regDate,
-      KYC_Status: kycStatus,
-      Last_Active: lastActive,
-      Lifetime_Value: nf(ltv),
-      Monthly_Volume: n(monthlyVol),
-      Risk_Score: n(riskScore),
-      Account_Manager: rng.pick(ACCOUNT_MANAGERS),
-    });
-  }
-  return rows;
-}
-
-function generateRevTransactions(
-  rng: SeededRandom,
-  customers: Record<string, string>[],
-  products: Record<string, string>[],
-): Record<string, string>[] {
-  const productTypes = ["Cards", "Crypto", "Trading", "Insurance", "Premium"] as const;
-  const productTypeWeights = [40, 18, 15, 8, 19];
-  const txTypes = ["Payment", "Transfer", "Exchange", "Fee"] as const;
-  const txTypeWeights = [45, 25, 22, 8];
-  const currencies = ["EUR", "USD", "GBP", "CHF"] as const;
-  const currencyWeights = [40, 30, 20, 10];
-  const statuses = ["Completed", "Pending", "Failed", "Reversed"] as const;
-  const statusWeights = [85, 8, 5, 2];
-  const channels = ["App", "API", "Web"] as const;
-  const channelWeights = [65, 20, 15];
-
-  const fxRates: Record<string, number> = {
-    EUR: 1.0, USD: 0.92, GBP: 1.17, CHF: 1.05,
-  };
-
-  const rows: Record<string, string>[] = [];
-  for (let i = 0; i < 500; i++) {
-    const tid = `RT-${String(i + 1).padStart(5, "0")}`;
-    const date = rng.dateInRange("2024-01-01", "2025-12-31");
-    const customer = rng.pick(customers);
-    const productType = rng.pickWeighted(productTypes, productTypeWeights);
-    const txType = rng.pickWeighted(txTypes, txTypeWeights);
-    const currency = rng.pickWeighted(currencies, currencyWeights);
-    const status = rng.pickWeighted(statuses, statusWeights);
-    const channel = rng.pickWeighted(channels, channelWeights);
-    const country = customer.Country;
-    const merchant = rng.pick(MERCHANT_CATEGORIES);
-
-    // Amount varies by transaction type
-    let amount: number;
-    switch (txType) {
-      case "Payment": amount = rng.nextFloat(2.50, 850.00, 2); break;
-      case "Transfer": amount = rng.nextFloat(10.00, 15000.00, 2); break;
-      case "Exchange": amount = rng.nextFloat(50.00, 25000.00, 2); break;
-      case "Fee": amount = rng.nextFloat(0.50, 29.99, 2); break;
-    }
-
-    const fxRate = fxRates[currency] + rng.nextFloat(-0.02, 0.02, 4);
-    const amountEur = parseFloat((amount * fxRate).toFixed(2));
-    const feeAmount = txType === "Fee" ? amount : parseFloat((amount * rng.nextFloat(0.001, 0.015, 4)).toFixed(2));
-
-    // Find a matching product for the type
-    const matchingProducts = products.filter(p => p.Category === productType || (productType === "Premium" && ["Cards"].includes(p.Category)));
-    const product = matchingProducts.length > 0 ? rng.pick(matchingProducts) : rng.pick(products);
-
-    rows.push({
-      Transaction_ID: tid,
-      Date: date,
-      Customer_ID: customer.Customer_ID,
-      Product_Type: product.Category,
-      Transaction_Type: txType,
-      Amount: nf(amount),
-      Currency: currency,
-      FX_Rate: nf(fxRate, 4),
-      Amount_EUR: nf(amountEur),
-      Fee_Amount: nf(feeAmount),
-      Status: status,
-      Country: country,
-      Merchant_Category: merchant,
-      Channel: channel,
-    });
-  }
-  return rows;
-}
-
-function generateRevMonthlyKpis(rng: SeededRandom): Record<string, string>[] {
-  const rows: Record<string, string>[] = [];
-
-  // Base values for Jan 2024, growing monthly
-  let mau = 30_200_000;
-  let headcount = 7800;
-
-  for (let y = 2024; y <= 2025; y++) {
-    for (let m = 1; m <= 12; m++) {
-      const month = `${y}-${String(m).padStart(2, "0")}`;
-
-      // MAU growth: ~2-4% monthly with seasonality
-      const seasonFactor = m >= 6 && m <= 8 ? 0.98 : m === 12 ? 1.03 : 1.0;
-      mau = Math.round(mau * (1 + rng.nextFloat(0.018, 0.038, 4)) * seasonFactor);
-      const dau = Math.round(mau * rng.nextFloat(0.38, 0.45, 3));
-      const newSignups = Math.round(mau * rng.nextFloat(0.04, 0.07, 3));
-      const churnRate = rng.nextFloat(1.2, 2.8, 2);
-
-      // MRR growing from ~100M to ~150M+ over 24 months
-      const monthIndex = (y - 2024) * 12 + m - 1;
-      const baseMrr = 98_000_000 + monthIndex * 2_400_000 + rng.nextInt(-1_500_000, 2_000_000);
-      const mrr = Math.round(baseMrr * seasonFactor);
-      const arr = mrr * 12;
-      const arpu = parseFloat((mrr / mau).toFixed(2));
-
-      const cac = rng.nextFloat(22.0, 45.0, 2);
-      const ltv = rng.nextFloat(180.0, 320.0, 2);
-      const ltvCacRatio = parseFloat((ltv / cac).toFixed(2));
-      const nps = rng.nextInt(52, 72);
-      const appRating = rng.nextFloat(4.5, 4.8, 1);
-
-      const txVolume = Math.round(mau * rng.nextFloat(3.8, 6.2, 1));
-      const grossMargin = rng.nextFloat(48.0, 58.0, 1);
-
-      // OpEx and Net Income
-      const opex = Math.round(mrr * rng.nextFloat(0.65, 0.82, 3));
-      const netIncome = Math.round(mrr * rng.nextFloat(0.02, 0.18, 3));
-
-      headcount = Math.round(headcount * (1 + rng.nextFloat(0.002, 0.012, 4)));
-      const revPerEmployee = Math.round((mrr * 12) / headcount);
-
-      rows.push({
-        Month: month,
-        MAU: n(mau),
-        DAU: n(dau),
-        New_Signups: n(newSignups),
-        "Churn_Rate_%": nf(churnRate),
-        MRR: n(mrr),
-        ARR: n(arr),
-        ARPU: nf(arpu),
-        CAC: nf(cac),
-        LTV: nf(ltv),
-        LTV_CAC_Ratio: nf(ltvCacRatio),
-        NPS_Score: n(nps),
-        App_Rating: nf(appRating, 1),
-        Transaction_Volume: n(txVolume),
-        "Gross_Margin_%": nf(grossMargin, 1),
-        OpEx: n(opex),
-        Net_Income: n(netIncome),
-        Headcount: n(headcount),
-        Revenue_Per_Employee: n(revPerEmployee),
-      });
-    }
-  }
-  return rows;
-}
-
-function generateRevPLMonthly(rng: SeededRandom): Record<string, string>[] {
-  const rows: Record<string, string>[] = [];
-
-  for (let y = 2024; y <= 2025; y++) {
-    for (let m = 1; m <= 12; m++) {
-      const month = `${y}-${String(m).padStart(2, "0")}`;
-      const monthIndex = (y - 2024) * 12 + m - 1;
-
-      // Revenue components growing over time (in EUR millions, stored as raw numbers)
-      const baseRev = 105_000_000 + monthIndex * 2_200_000;
-      const seasonMult = m === 12 ? 1.08 : m >= 6 && m <= 8 ? 0.96 : 1.0;
-      const noise = rng.nextFloat(0.97, 1.04, 3);
-
-      const interchangeRev = Math.round(baseRev * 0.32 * seasonMult * noise);
-      const subscriptionRev = Math.round(baseRev * 0.28 * seasonMult * rng.nextFloat(0.98, 1.03, 3));
-      const tradingRev = Math.round(baseRev * 0.18 * rng.nextFloat(0.80, 1.25, 3)); // More volatile
-      const fxRev = Math.round(baseRev * 0.15 * seasonMult * rng.nextFloat(0.95, 1.06, 3));
-      const otherRev = Math.round(baseRev * 0.07 * rng.nextFloat(0.90, 1.10, 3));
-
-      const revenue = interchangeRev + subscriptionRev + tradingRev + fxRev + otherRev;
-      const cogs = Math.round(revenue * rng.nextFloat(0.42, 0.50, 3));
-      const grossProfit = revenue - cogs;
-      const grossMargin = parseFloat(((grossProfit / revenue) * 100).toFixed(1));
-
-      // Operating expenses
-      const salesMarketing = Math.round(revenue * rng.nextFloat(0.14, 0.20, 3));
-      const technology = Math.round(revenue * rng.nextFloat(0.12, 0.18, 3));
-      const operations = Math.round(revenue * rng.nextFloat(0.06, 0.10, 3));
-      const ga = Math.round(revenue * rng.nextFloat(0.04, 0.07, 3));
-      const totalOpex = salesMarketing + technology + operations + ga;
-
-      const ebitda = grossProfit - totalOpex;
-      const ebitdaMargin = parseFloat(((ebitda / revenue) * 100).toFixed(1));
-      const da = Math.round(revenue * rng.nextFloat(0.02, 0.04, 3));
-      const ebit = ebitda - da;
-      const interest = Math.round(rng.nextFloat(500_000, 2_000_000, 0));
-      const preTax = ebit - interest;
-      const tax = preTax > 0 ? Math.round(preTax * rng.nextFloat(0.18, 0.25, 3)) : 0;
-      const netIncome = preTax - tax;
-      const netMargin = parseFloat(((netIncome / revenue) * 100).toFixed(1));
-
-      rows.push({
-        Month: month,
-        Revenue: n(revenue),
-        Interchange_Revenue: n(interchangeRev),
-        Subscription_Revenue: n(subscriptionRev),
-        Trading_Revenue: n(tradingRev),
-        FX_Revenue: n(fxRev),
-        Other_Revenue: n(otherRev),
-        COGS: n(cogs),
-        Gross_Profit: n(grossProfit),
-        "Gross_Margin_%": nf(grossMargin, 1),
-        Sales_Marketing: n(salesMarketing),
-        Technology: n(technology),
-        Operations: n(operations),
-        G_A: n(ga),
-        Total_OpEx: n(totalOpex),
-        EBITDA: n(ebitda),
-        "EBITDA_Margin_%": nf(ebitdaMargin, 1),
-        D_A: n(da),
-        EBIT: n(ebit),
-        Interest: n(interest),
-        Tax: n(tax),
-        Net_Income: n(netIncome),
-        "Net_Margin_%": nf(netMargin, 1),
-      });
-    }
-  }
-  return rows;
-}
-
-function generateRevRegional(rng: SeededRandom): Record<string, string>[] {
-  const regions = ["UK", "EU_West", "EU_East", "Nordics", "US", "APAC", "MENA", "LatAm"] as const;
-  // Revenue share (sums to 100)
-  const revShares: Record<string, number> = {
-    UK: 0.32, EU_West: 0.28, EU_East: 0.12, Nordics: 0.08,
-    US: 0.10, APAC: 0.05, MENA: 0.03, LatAm: 0.02,
-  };
-  // Customer share
-  const custShares: Record<string, number> = {
-    UK: 0.28, EU_West: 0.26, EU_East: 0.18, Nordics: 0.09,
-    US: 0.08, APAC: 0.05, MENA: 0.03, LatAm: 0.03,
-  };
-  // Growth by region (faster in newer markets)
-  const growthBase: Record<string, [number, number]> = {
-    UK: [15, 28], EU_West: [18, 32], EU_East: [25, 55],
-    Nordics: [20, 38], US: [40, 85], APAC: [35, 75],
-    MENA: [45, 95], LatAm: [50, 120],
-  };
-  const marketShares: Record<string, [number, number]> = {
-    UK: [6.0, 9.5], EU_West: [3.5, 6.0], EU_East: [8.0, 14.0],
-    Nordics: [4.0, 7.5], US: [0.3, 1.2], APAC: [0.1, 0.5],
-    MENA: [0.5, 2.0], LatAm: [0.2, 1.0],
-  };
-  const regStatus: Record<string, string[]> = {
-    UK: ["Full_Banking_License"], EU_West: ["Full_Banking_License"],
-    EU_East: ["EU_Passported"], Nordics: ["EU_Passported"],
-    US: ["State_Licenses", "Pending_Federal"], APAC: ["SG_License", "Applying"],
-    MENA: ["DIFC_Licensed"], LatAm: ["Applying", "Partnership"],
-  };
-
-  const rows: Record<string, string>[] = [];
-  for (let y = 2024; y <= 2025; y++) {
-    for (let m = 1; m <= 12; m++) {
-      const month = `${y}-${String(m).padStart(2, "0")}`;
-      const monthIndex = (y - 2024) * 12 + m - 1;
-      // Total monthly revenue grows over time
-      const totalRev = 105_000_000 + monthIndex * 2_200_000;
-      const totalCust = 30_200_000 + monthIndex * 900_000;
-
-      for (const region of regions) {
-        const rev = Math.round(totalRev * revShares[region] * rng.nextFloat(0.93, 1.08, 3));
-        const cust = Math.round(totalCust * custShares[region] * rng.nextFloat(0.95, 1.05, 3));
-        const [gMin, gMax] = growthBase[region];
-        const growth = rng.nextFloat(gMin, gMax, 1);
-        const [msMin, msMax] = marketShares[region];
-        const ms = rng.nextFloat(msMin, msMax, 1);
-        const regStat = rng.pick(regStatus[region]);
-
-        rows.push({
-          Month: month,
-          Region: region,
-          Revenue: n(rev),
-          Customers: n(cust),
-          "Growth_YoY_%": nf(growth, 1),
-          "Market_Share_%": nf(ms, 1),
-          Regulatory_Status: regStat,
-        });
-      }
-    }
-  }
-  return rows;
-}
-
-function generateRevCostCenters(rng: SeededRandom): Record<string, string>[] {
-  const departments = [
-    "Engineering", "Product", "Marketing", "Operations", "Compliance",
-    "Finance", "HR", "Legal", "Data", "Customer_Support",
-  ] as const;
-
-  // Base monthly budgets (EUR) and headcount
-  const deptConfig: Record<string, { budget: number; headcount: number; initiative: string[] }> = {
-    Engineering: { budget: 18_500_000, headcount: 2800, initiative: ["Core Banking Platform", "API v3 Migration", "Microservices Refactor", "ML Fraud Detection"] },
-    Product: { budget: 5_200_000, headcount: 420, initiative: ["Revolut X Launch", "Business Hub v2", "Junior Accounts", "Pay Integration"] },
-    Marketing: { budget: 22_000_000, headcount: 650, initiative: ["US Market Entry", "Brand Campaign EU", "Referral Program 2.0", "Creator Partnerships"] },
-    Operations: { budget: 8_800_000, headcount: 1200, initiative: ["KYC Automation", "Support AI Agent", "Process Optimization", "Vendor Consolidation"] },
-    Compliance: { budget: 6_500_000, headcount: 580, initiative: ["MiCA Compliance", "US Licensing", "AML Model Upgrade", "Sanctions Screening v2"] },
-    Finance: { budget: 3_200_000, headcount: 310, initiative: ["ERP Migration", "Treasury Optimization", "IPO Readiness", "Transfer Pricing"] },
-    HR: { budget: 2_800_000, headcount: 240, initiative: ["Engineering Hiring Wave", "DEIB Program", "L&D Platform", "Comp Benchmark"] },
-    Legal: { budget: 4_100_000, headcount: 280, initiative: ["Banking License App", "IP Portfolio", "Regulatory Filings", "M&A Support"] },
-    Data: { budget: 7_200_000, headcount: 520, initiative: ["Data Mesh Migration", "Real-time Analytics", "ML Ops Platform", "GDPR Automation"] },
-    Customer_Support: { budget: 9_500_000, headcount: 1800, initiative: ["AI Chatbot v3", "24/7 Premium Support", "Multilingual Expansion", "Self-Service Portal"] },
-  };
-
-  const rows: Record<string, string>[] = [];
-  for (let m = 1; m <= 12; m++) {
-    const month = `2025-${String(m).padStart(2, "0")}`;
-    for (const dept of departments) {
-      const cfg = deptConfig[dept];
-      // Budget increases slightly through the year
-      const budget = Math.round(cfg.budget * (1 + (m - 1) * 0.008) * rng.nextFloat(0.97, 1.03, 3));
-      // Actual can be over or under budget
-      const variance_pct = rng.nextFloat(-12, 15, 1);
-      const actual = Math.round(budget * (1 + variance_pct / 100));
-      const variance = budget - actual;
-      const headcount = Math.round(cfg.headcount * (1 + (m - 1) * 0.005 + rng.nextFloat(-0.02, 0.03, 3)));
-      const costPerHead = Math.round(actual / headcount);
-      const initiative = rng.pick(cfg.initiative);
-
-      rows.push({
-        Month: month,
-        Department: dept,
-        Budget: n(budget),
-        Actual: n(actual),
-        Variance: n(variance),
-        "Variance_%": nf(variance_pct, 1),
-        Headcount: n(headcount),
-        Cost_Per_Head: n(costPerHead),
-        Key_Initiative: initiative,
-      });
-    }
-  }
-  return rows;
 }

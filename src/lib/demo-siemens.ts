@@ -1,673 +1,571 @@
 import { SeededRandom, n, nf } from "./demo-datasets";
 import type { DemoTable } from "./demo-datasets";
 
-// ── Realistic industrial company/customer names ──
-const INDUSTRIAL_COMPANIES = [
-  "Volkswagen AG", "BMW Group", "Mercedes-Benz", "Stellantis NV", "Toyota Europe",
-  "BASF SE", "Bayer AG", "Evonik Industries", "Covestro AG", "Lanxess AG",
-  "E.ON SE", "RWE AG", "Enel SpA", "Iberdrola SA", "TotalEnergies",
-  "Airbus SE", "Rolls-Royce Holdings", "Safran SA", "Leonardo SpA", "BAE Systems",
-  "Deutsche Bahn", "SNCF Group", "Trenitalia", "Alstom SA", "CAF SA",
-  "Roche Holding", "Novartis AG", "Fresenius SE", "Philips NV", "Medtronic Europe",
-  "ThyssenKrupp AG", "ArcelorMittal", "Salzgitter AG", "voestalpine AG", "Tata Steel Europe",
-  "ABB Ltd", "Schneider Electric", "Honeywell Europe", "Emerson Electric", "Rockwell Automation",
-  "Bosch Group", "Continental AG", "ZF Friedrichshafen", "Schaeffler AG", "Magna International",
-  "Shell plc", "BP plc", "Equinor ASA", "OMV AG", "Repsol SA",
-  "SAP SE", "Dassault Systemes", "Hexagon AB", "PTC Inc Europe", "Aveva Group",
-  "Heidelberg Materials", "Holcim Group", "CRH plc", "Buzzi SpA", "Vicat SA",
-  "Vattenfall AB", "Statkraft AS", "Orsted A/S", "EDP Renewables", "Vestas Wind",
-  "Nestle SA", "Danone SA", "Unilever NV", "Henkel AG", "Beiersdorf AG",
-  "Deutsche Post DHL", "DB Schenker", "Kuehne+Nagel", "DSV A/S", "Maersk Group",
-  "Munich Re", "Allianz SE", "Zurich Insurance", "AXA Group", "Generali SpA",
-  "UniCredit SpA", "Deutsche Bank", "BNP Paribas", "ING Group", "Societe Generale",
-  "Infineon Technologies", "STMicroelectronics", "NXP Semiconductors", "ASML Holding", "Nordic Semiconductor",
-  "Sandvik AB", "Atlas Copco", "Metso Outotec", "Konecranes Oyj", "Wartsila Corp",
-  "Peugeot Industries", "Faurecia SE", "Plastic Omnium", "Valeo SA", "Hella GmbH",
-  "Salzburg AG", "Wien Energie", "MVV Energie", "EnBW AG", "Fortum Oyj",
-  "Rheinmetall AG", "Diehl Group", "Hensoldt AG", "MBDA Systems", "Thales Group",
-  "Knorr-Bremse AG", "Wabtec Europe", "Stadler Rail", "Vossloh AG", "Plasser & Theurer",
-  "KUKA AG", "Fanuc Europe", "Comau SpA", "Staubli Group", "Universal Robots",
-  "Bilfinger SE", "Hochtief AG", "Strabag SE", "Vinci SA", "Ferrovial SA",
-  "Linde plc", "Air Liquide", "Messer Group", "Nippon Gases Europe", "SOL Group",
-  "Wacker Chemie", "Clariant AG", "Solvay SA", "Arkema SA", "Kemira Oyj",
-  "Daimler Truck", "MAN Energy Solutions", "Deutz AG", "Cummins Europe", "Volvo Group",
-  "Fraport AG", "Aena SME", "ADP Group", "Zurich Airport", "Schiphol Group",
-  "Siemens Healthineers", "GE Healthcare Europe", "Canon Medical", "Fujifilm Europe", "Olympus Europa",
+// ── Name pools ──
+const FIRST_NAMES = [
+  "Alexander", "Maria", "James", "Sophie", "Oliver", "Emma", "Liam", "Elena",
+  "Noah", "Mia", "Elias", "Anna", "Ben", "Clara", "Felix", "Laura",
+  "Max", "Lena", "Paul", "Hanna", "Leon", "Julia", "Finn", "Sarah",
+  "David", "Lisa", "Daniel", "Katharina", "Lukas", "Eva", "Niklas", "Jana",
+  "Jonas", "Marie", "Tim", "Sophia", "Moritz", "Leonie", "Simon", "Nora",
+  "Tom", "Amelie", "Jan", "Emilia", "Philipp", "Charlotte", "Erik", "Johanna",
+  "Sebastian", "Alina", "Julian", "Miriam", "Tobias", "Theresa", "Markus", "Claudia",
+  "Stefan", "Andrea", "Christian", "Sabine", "Andreas", "Petra", "Thomas", "Monika",
+  "Michael", "Gabriele", "Martin", "Nicole", "Peter", "Sandra", "Frank", "Kerstin",
+  "Matthias", "Stefanie", "Robert", "Melanie", "Patrick", "Diana", "Marco", "Rebecca",
+  "Ahmed", "Fatima", "Omar", "Aisha", "Yusuf", "Leila", "Hassan", "Nadia",
+  "Raj", "Priya", "Amit", "Sita", "Vikram", "Deepika", "Arjun", "Meera",
+  "Wei", "Mei", "Chen", "Ling", "Zhang", "Xia", "Li", "Yue",
+  "Jean", "Isabelle", "Pierre", "Camille", "Antoine", "Chloe", "Hugo", "Manon",
+  "Luca", "Giulia", "Alessandro", "Francesca", "Valentina",
+  "Carlos", "Isabella", "Diego", "Carmen", "Pablo", "Lucia", "Javier",
+  "John", "Emily", "William", "Jessica", "Richard", "Ashley", "Joseph", "Samantha",
+  "Charles", "Jennifer", "George", "Megan", "Edward", "Rachel", "Henry", "Lauren",
+  "Kenji", "Yuki", "Takashi", "Sakura", "Hiroshi", "Akiko", "Ryo", "Haruka",
+  "Piotr", "Agnieszka", "Krzysztof", "Katarzyna", "Tomasz", "Magdalena", "Marek", "Ewa",
 ] as const;
 
-const INDUSTRIES = [
-  "Automotive", "Energy", "Healthcare", "Manufacturing", "Infrastructure",
-  "Aerospace", "Chemicals", "Transport",
+const LAST_NAMES = [
+  "Mueller", "Schmidt", "Schneider", "Fischer", "Weber", "Meyer", "Wagner", "Becker",
+  "Schulz", "Hoffmann", "Koch", "Richter", "Wolf", "Klein", "Schroeder", "Neumann",
+  "Schwarz", "Braun", "Krueger", "Werner", "Lange", "Hartmann", "Fuchs", "Lehmann",
+  "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+  "Wilson", "Moore", "Taylor", "Anderson", "Thomas", "Jackson", "White", "Harris",
+  "Martin", "Thompson", "Robinson", "Clark", "Lewis", "Lee", "Walker", "Hall",
+  "O'Brien", "Murphy", "Kelly", "Walsh", "Ryan", "Byrne", "Doyle", "Gallagher",
+  "Dubois", "Laurent", "Bernard", "Moreau", "Petit", "Robert", "Richard", "Durand",
+  "Rossi", "Russo", "Ferrari", "Esposito", "Bianchi", "Romano", "Colombo", "Ricci",
+  "Gonzalez", "Rodriguez", "Martinez", "Lopez", "Hernandez", "Perez", "Sanchez", "Ramirez",
+  "Tanaka", "Suzuki", "Watanabe", "Takahashi", "Ito", "Yamamoto", "Nakamura", "Kobayashi",
+  "Nowak", "Kowalski", "Wozniak", "Lewandowski", "Kaminski", "Zielinski", "Jankowski", "Mazur",
+  "Al-Rashid", "Al-Farsi", "Hassan", "Ibrahim", "Khalil", "Mansour", "Nasser", "Saleh",
+  "Patel", "Sharma", "Singh", "Kumar", "Gupta", "Agarwal", "Mehta", "Joshi",
+  "Wang", "Zhang", "Liu", "Chen", "Yang", "Huang", "Zhou", "Wu",
 ] as const;
 
-const COUNTRIES_SI = [
-  "Germany", "USA", "China", "UK", "France", "Italy", "Spain",
-  "Netherlands", "Switzerland", "Austria", "Sweden", "Norway",
-  "Japan", "South Korea", "India", "Brazil", "Australia",
-  "Poland", "Czech Republic", "Turkey", "UAE", "Saudi Arabia",
-  "Canada", "Mexico", "Singapore", "Indonesia",
-] as const;
+// ── Industrial company names for customers ──
+const SI_COMPANIES: { name: string; industry: string }[] = [
+  { name: "BMW AG", industry: "Automotive" },
+  { name: "Deutsche Bahn AG", industry: "Transport" },
+  { name: "Volkswagen Group", industry: "Automotive" },
+  { name: "BASF SE", industry: "Manufacturing" },
+  { name: "Bosch GmbH", industry: "Manufacturing" },
+  { name: "E.ON SE", industry: "Energy" },
+  { name: "ThyssenKrupp AG", industry: "Manufacturing" },
+  { name: "Continental AG", industry: "Automotive" },
+  { name: "Daimler Truck AG", industry: "Automotive" },
+  { name: "HeidelbergCement AG", industry: "Manufacturing" },
+  { name: "SAP SE", industry: "Manufacturing" },
+  { name: "Infineon Technologies", industry: "Manufacturing" },
+  { name: "Fresenius SE", industry: "Healthcare" },
+  { name: "Henkel AG", industry: "Manufacturing" },
+  { name: "Merck KGaA", industry: "Healthcare" },
+  { name: "Deutsche Post DHL", industry: "Transport" },
+  { name: "RWE AG", industry: "Energy" },
+  { name: "EnBW Energie", industry: "Energy" },
+  { name: "Salzgitter AG", industry: "Manufacturing" },
+  { name: "MAN Energy Solutions", industry: "Energy" },
+  { name: "Airbus SE", industry: "Manufacturing" },
+  { name: "Fraport AG", industry: "Transport" },
+  { name: "Hamburger Hafen", industry: "Transport" },
+  { name: "Porsche AG", industry: "Automotive" },
+  { name: "Audi AG", industry: "Automotive" },
+  { name: "ABB Ltd", industry: "Manufacturing" },
+  { name: "Schneider Electric", industry: "Energy" },
+  { name: "Shell Deutschland", industry: "Energy" },
+  { name: "TotalEnergies DE", industry: "Energy" },
+  { name: "Vattenfall Europe", industry: "Energy" },
+  { name: "Bayer AG", industry: "Healthcare" },
+  { name: "Charite Hospital", industry: "Healthcare" },
+  { name: "Universitaetsklinikum Heidelberg", industry: "Healthcare" },
+  { name: "Koenig & Bauer AG", industry: "Manufacturing" },
+  { name: "Trumpf GmbH", industry: "Manufacturing" },
+  { name: "Liebherr Group", industry: "Manufacturing" },
+  { name: "Voith GmbH", industry: "Manufacturing" },
+  { name: "ZF Friedrichshafen", industry: "Automotive" },
+  { name: "Schaeffler AG", industry: "Automotive" },
+  { name: "Wacker Chemie AG", industry: "Manufacturing" },
+  { name: "Metro AG", industry: "Buildings" },
+  { name: "Union Investment", industry: "Buildings" },
+  { name: "Commerz Real AG", industry: "Buildings" },
+  { name: "ECE Projektmanagement", industry: "Buildings" },
+  { name: "Goldbeck GmbH", industry: "Buildings" },
+  { name: "Hochtief AG", industry: "Buildings" },
+  { name: "Strabag SE", industry: "Buildings" },
+  { name: "Bilfinger SE", industry: "Buildings" },
+  { name: "Drees & Sommer", industry: "Buildings" },
+  { name: "Implenia AG", industry: "Buildings" },
+  { name: "Network Rail UK", industry: "Transport" },
+  { name: "SNCF France", industry: "Transport" },
+  { name: "Trenitalia SpA", industry: "Transport" },
+  { name: "FS Italiane", industry: "Transport" },
+  { name: "NS Dutch Railways", industry: "Transport" },
+  { name: "SBB Switzerland", industry: "Transport" },
+  { name: "OBB Austria", industry: "Transport" },
+  { name: "PKP Poland", industry: "Transport" },
+  { name: "Renfe Spain", industry: "Transport" },
+  { name: "CP Portugal", industry: "Transport" },
+  { name: "General Motors", industry: "Automotive" },
+  { name: "Ford Motor Company", industry: "Automotive" },
+  { name: "Toyota Motor Corp", industry: "Automotive" },
+  { name: "Hyundai Motor Group", industry: "Automotive" },
+  { name: "Tata Motors", industry: "Automotive" },
+  { name: "BHP Group", industry: "Manufacturing" },
+  { name: "Rio Tinto", industry: "Manufacturing" },
+  { name: "ArcelorMittal", industry: "Manufacturing" },
+  { name: "Nippon Steel", industry: "Manufacturing" },
+  { name: "POSCO Holdings", industry: "Manufacturing" },
+  { name: "Duke Energy", industry: "Energy" },
+  { name: "NextEra Energy", industry: "Energy" },
+  { name: "Enel SpA", industry: "Energy" },
+  { name: "Iberdrola SA", industry: "Energy" },
+  { name: "EDF France", industry: "Energy" },
+  { name: "Skanska AB", industry: "Buildings" },
+  { name: "Vinci SA", industry: "Buildings" },
+  { name: "Bouygues SA", industry: "Buildings" },
+  { name: "Balfour Beatty", industry: "Buildings" },
+  { name: "Fluor Corporation", industry: "Buildings" },
+  { name: "Siemens Healthineers", industry: "Healthcare" },
+  { name: "Philips Healthcare", industry: "Healthcare" },
+  { name: "GE Healthcare", industry: "Healthcare" },
+  { name: "Medtronic plc", industry: "Healthcare" },
+  { name: "Johnson & Johnson Med", industry: "Healthcare" },
+  { name: "Caterpillar Inc", industry: "Manufacturing" },
+  { name: "John Deere", industry: "Manufacturing" },
+  { name: "Honeywell Intl", industry: "Manufacturing" },
+  { name: "Emerson Electric", industry: "Manufacturing" },
+  { name: "Rockwell Automation", industry: "Manufacturing" },
+  { name: "Mitsubishi Electric", industry: "Manufacturing" },
+  { name: "Fanuc Corporation", industry: "Manufacturing" },
+  { name: "Yaskawa Electric", industry: "Manufacturing" },
+  { name: "Kuka AG", industry: "Manufacturing" },
+  { name: "Festo SE", industry: "Manufacturing" },
+  { name: "Beckhoff Automation", industry: "Manufacturing" },
+  { name: "Endress+Hauser", industry: "Manufacturing" },
+  { name: "Sick AG", industry: "Manufacturing" },
+  { name: "Pepperl+Fuchs", industry: "Manufacturing" },
+  { name: "Turck GmbH", industry: "Manufacturing" },
+];
 
-const COUNTRY_REGION_SI: Record<string, string> = {
-  Germany: "EMEA", USA: "Americas", China: "APAC", UK: "EMEA",
-  France: "EMEA", Italy: "EMEA", Spain: "EMEA", Netherlands: "EMEA",
-  Switzerland: "EMEA", Austria: "EMEA", Sweden: "EMEA", Norway: "EMEA",
-  Japan: "APAC", "South Korea": "APAC", India: "APAC", Brazil: "Americas",
-  Australia: "APAC", Poland: "EMEA", "Czech Republic": "EMEA", Turkey: "EMEA",
-  UAE: "EMEA", "Saudi Arabia": "EMEA", Canada: "Americas", Mexico: "Americas",
-  Singapore: "APAC", Indonesia: "APAC",
-};
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const PROJECT_NAMES_PREFIX = [
-  "Smart Factory", "Digital Twin", "Grid Automation", "Rail Control",
-  "MRI System", "Building Automation", "Wind Farm", "EV Charging",
-  "Process Control", "Cybersecurity", "Asset Management", "Predictive Maintenance",
-  "IoT Platform", "Edge Computing", "Cloud Migration", "SCADA Upgrade",
-  "Substation", "Signaling System", "CT Scanner", "Power Distribution",
-  "Energy Storage", "Water Treatment", "Mining Automation", "Steel Mill",
-  "Pharma Line", "Airport Systems", "Data Center", "Oil & Gas Platform",
-] as const;
+// ── Project names (80) ──
+const PROJECT_NAMES = [
+  "Munich Metro Line 5 Signaling", "BMW Factory Automation Phase 3", "BASF Process Control Upgrade",
+  "Deutsche Bahn ICE Fleet Monitoring", "VW Wolfsburg Smart Factory", "E.ON Grid Modernization",
+  "ThyssenKrupp Steel Mill Digitalization", "Continental Tire Plant IoT", "Daimler Truck Telematics",
+  "Heidelberg Cement Kiln Optimization", "Airbus Wing Assembly Robotics", "Porsche Paint Shop Automation",
+  "ABB Switchgear Integration", "Shell Refinery Control System", "Network Rail ETCS Rollout",
+  "SNCF TGV Next-Gen Signaling", "Trenitalia High-Speed Monitoring", "SBB Gotthard Tunnel Systems",
+  "Bosch Smart Campus Energy", "Infineon Fab Clean Room Controls", "Fresenius Dialysis Plant Automation",
+  "Henkel Packaging Line Upgrade", "Merck Lab Automation Suite", "DHL Sorting Center Robotics",
+  "RWE Wind Farm SCADA", "EnBW Solar Park Management", "Salzgitter Rolling Mill Drives",
+  "MAN Marine Engine Controls", "Fraport Terminal Automation", "Hamburg Port Crane Systems",
+  "Audi e-tron Assembly Line", "BHP Mining Automation", "Rio Tinto Autonomous Haul",
+  "ArcelorMittal Blast Furnace Controls", "Nippon Steel Quality System", "Duke Energy Substation Upgrade",
+  "NextEra Solar Inverter Network", "Enel Smart Grid Italy", "Iberdrola Wind Management",
+  "EDF Nuclear Safety Systems", "Skanska Building Management", "Vinci Highway Tolling",
+  "Bouygues Tower Automation", "Balfour Beatty Rail Electrification", "Caterpillar Fleet Management",
+  "John Deere Precision Farming", "Honeywell Plant Integration", "Emerson Valve Automation",
+  "Rockwell MES Implementation", "Mitsubishi EV Charging Infra", "Fanuc Robot Cell Design",
+  "Yaskawa Welding Robot Line", "Kuka Automotive Body Shop", "Festo Pneumatic Line Upgrade",
+  "Beckhoff EtherCAT Rollout", "Endress Hauser Flow Measurement", "Sick Vision System Integration",
+  "GE Healthcare MRI Facility", "Philips CT Scanner Network", "Medtronic Clean Room Controls",
+  "Toyota Paint Shop Upgrade", "Hyundai EV Battery Factory", "Tata Steel DCS Migration",
+  "POSCO Smart Steel Works", "Fluor Petrochemical Control", "Charite Hospital BMS",
+  "Ford Assembly Plant MES", "GM EV Platform Controls", "PKP Station Modernization",
+  "Renfe AVE Signaling Extension", "CP Lisbon Metro Upgrade", "OBB Brenner Base Tunnel",
+  "NS Rotterdam Station BMS", "Goldbeck Modular Factory", "Hochtief Tunnel Ventilation",
+  "Strabag Highway Systems", "Bilfinger Maintenance Platform", "Implenia Bridge Monitoring",
+  "Wacker Chemie Reactor Control", "ZF Transmission Line Automation",
+];
 
-const PROJECT_NAMES_SUFFIX = [
-  "Rollout", "Modernization", "Implementation", "Upgrade", "Deployment",
-  "Phase II", "Phase III", "Pilot", "Expansion", "Retrofit",
-  "Integration", "Transformation", "Optimization", "Migration",
-] as const;
-
-const SALES_REPS = [
-  "Michael Braun", "Sarah Weber", "Thomas Mueller", "Marie Laurent",
-  "James Wilson", "Katarina Kovac", "Lars Pettersson", "Elena Ivanova",
-  "Raj Patel", "Yuki Tanaka", "Carlos Fernandez", "Anna Schmidt",
-  "David O'Brien", "Fatima Al-Rashid", "Pierre Dubois",
-] as const;
-
-const SUPPLIER_NAMES = [
-  "Infineon Technologies", "Texas Instruments", "Murata Manufacturing", "TE Connectivity",
-  "Bosch Rexroth", "Parker Hannifin", "SKF Group", "Schaeffler AG",
-  "Microsoft Azure", "AWS Industrial", "PTC ThingWorx", "Siemens Xcelerator",
-  "SSAB Steel", "Thyssenkrupp Materials", "Rio Tinto Minerals", "BASF Coatings",
-  "DHL Supply Chain", "DB Schenker Logistics", "Kuehne+Nagel", "Maersk Logistics",
-  "Nexperia BV", "STMicroelectronics", "Vishay Intertechnology", "ON Semiconductor",
-  "Festo SE", "SMC Corporation", "Aventics GmbH", "Buhler Group",
-  "Wind River Systems", "Red Hat Industrial", "VMware Edge", "Canonical IoT",
-  "Amphenol Corp", "Molex LLC", "Phoenix Contact", "Weidmuller Interface",
-  "Timken Company", "NSK Ltd", "NTN Corporation", "INA Schaeffler",
-  "ArcelorMittal Steel", "Nucor Corporation", "Voestalpine High Performance", "Sandvik Materials",
-  "Flir Systems", "Keyence Corporation", "Cognex Corporation", "Basler AG",
-  "Eaton Corporation", "ABB Components", "Schneider Distribution", "Legrand SA",
-  "SAP Manufacturing", "Dassault MES", "Rockwell Software", "Honeywell Process",
-  "Air Liquide Gases", "Linde Industrial", "Praxair Europe", "Messer SE",
-  "Henkel Adhesives", "3M Industrial", "Dow Chemical", "Sika AG",
-  "Rittal GmbH", "nVent Electric", "Pentair Enclosures", "Hubbell Industrial",
-  "Omron Electronics", "Mitsubishi Electric", "Yaskawa Electric", "Fanuc Corporation",
-  "Fluke Networks", "Tektronix Inc", "Keysight Technologies", "Rohde & Schwarz",
-  "Nord Drivesystems", "SEW-Eurodrive", "Bonfiglioli", "Sumitomo Drive",
-  "Pilz GmbH", "Sick AG", "Pepperl+Fuchs", "Turck GmbH",
-] as const;
-
-// ──────────────────────────────────────────────────────────────────────────────
-// SIEMENS DATA GENERATOR
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── Main generator ─────────────────────────────────────────────────────────
 
 export function generateSiemensData(): DemoTable[] {
-  const rng = new SeededRandom(73_001);
+  const rng = new SeededRandom(888_001);
 
-  const businessUnits = generateSiBUs();
-  const customers = generateSiCustomers(rng);
-  const orders = generateSiOrders(rng, customers);
-  const financials = generateSiFinancials(rng);
-  const employees = generateSiEmployees(rng);
-  const projects = generateSiProjects(rng, customers);
-  const supplyChain = generateSiSupplyChain(rng);
-
-  return [
-    {
-      id: "si_orders",
-      name: "Siemens — Orders",
-      rows: orders,
-      headers: [
-        "Order_ID", "Date", "Business_Unit", "Customer_ID", "Country", "Region",
-        "Order_Value_EUR", "Order_Type", "Delivery_Date", "Status", "Margin_%",
-        "Sales_Rep", "Industry_Vertical",
-      ],
-      columnTypes: {
-        Order_ID: "string", Date: "date", Business_Unit: "string",
-        Customer_ID: "string", Country: "string", Region: "string",
-        Order_Value_EUR: "number", Order_Type: "string", Delivery_Date: "date",
-        Status: "string", "Margin_%": "number", Sales_Rep: "string",
-        Industry_Vertical: "string",
-      },
-    },
-    {
-      id: "si_business_units",
-      name: "Siemens — Business Units",
-      rows: businessUnits,
-      headers: [
-        "BU_ID", "BU_Name", "CEO", "Headcount", "Revenue_FY2025",
-        "EBITDA_Margin_%", "R_D_Budget", "Key_Market", "Growth_Target_%",
-      ],
-      columnTypes: {
-        BU_ID: "string", BU_Name: "string", CEO: "string",
-        Headcount: "number", Revenue_FY2025: "number",
-        "EBITDA_Margin_%": "number", R_D_Budget: "number",
-        Key_Market: "string", "Growth_Target_%": "number",
-      },
-    },
-    {
-      id: "si_customers",
-      name: "Siemens — Customers",
-      rows: customers,
-      headers: [
-        "Customer_ID", "Company_Name", "Industry", "Country", "Segment",
-        "Account_Manager", "Contract_Value", "First_Order_Date", "NPS",
-      ],
-      columnTypes: {
-        Customer_ID: "string", Company_Name: "string", Industry: "string",
-        Country: "string", Segment: "string", Account_Manager: "string",
-        Contract_Value: "number", First_Order_Date: "date", NPS: "number",
-      },
-    },
-    {
-      id: "si_financials_quarterly",
-      name: "Siemens — Quarterly Financials",
-      rows: financials,
-      headers: [
-        "Quarter", "Business_Unit", "Revenue", "COGS", "Gross_Profit", "R_D",
-        "SGA", "EBITDA", "EBITDA_Margin_%", "Order_Intake", "Book_to_Bill",
-        "Free_Cash_Flow", "ROIC_%",
-      ],
-      columnTypes: {
-        Quarter: "string", Business_Unit: "string", Revenue: "number",
-        COGS: "number", Gross_Profit: "number", R_D: "number", SGA: "number",
-        EBITDA: "number", "EBITDA_Margin_%": "number", Order_Intake: "number",
-        Book_to_Bill: "number", Free_Cash_Flow: "number", "ROIC_%": "number",
-      },
-    },
-    {
-      id: "si_employees",
-      name: "Siemens — Workforce",
-      rows: employees,
-      headers: [
-        "Business_Unit", "Function", "Headcount", "Avg_Salary",
-        "Total_Cost", "Utilization_%", "Attrition_%", "Open_Positions",
-      ],
-      columnTypes: {
-        Business_Unit: "string", Function: "string", Headcount: "number",
-        Avg_Salary: "number", Total_Cost: "number", "Utilization_%": "number",
-        "Attrition_%": "number", Open_Positions: "number",
-      },
-    },
-    {
-      id: "si_projects",
-      name: "Siemens — Projects",
-      rows: projects,
-      headers: [
-        "Project_ID", "Project_Name", "Business_Unit", "Customer_ID",
-        "Start_Date", "End_Date", "Budget", "Actual_Cost", "Completion_%",
-        "Status", "Project_Manager", "Country", "Risk_Score",
-      ],
-      columnTypes: {
-        Project_ID: "string", Project_Name: "string", Business_Unit: "string",
-        Customer_ID: "string", Start_Date: "date", End_Date: "date",
-        Budget: "number", Actual_Cost: "number", "Completion_%": "number",
-        Status: "string", Project_Manager: "string", Country: "string",
-        Risk_Score: "number",
-      },
-    },
-    {
-      id: "si_supply_chain",
-      name: "Siemens — Supply Chain",
-      rows: supplyChain,
-      headers: [
-        "Supplier_ID", "Supplier_Name", "Country", "Category",
-        "Annual_Spend", "Quality_Score", "Delivery_Reliability_%",
-        "Lead_Time_Days", "Risk_Rating", "Alternative_Suppliers",
-      ],
-      columnTypes: {
-        Supplier_ID: "string", Supplier_Name: "string", Country: "string",
-        Category: "string", Annual_Spend: "number", Quality_Score: "number",
-        "Delivery_Reliability_%": "number", Lead_Time_Days: "number",
-        Risk_Rating: "string", Alternative_Suppliers: "number",
-      },
-    },
-  ];
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// TABLE GENERATORS
-// ──────────────────────────────────────────────────────────────────────────────
-
-function generateSiBUs(): Record<string, string>[] {
-  // Real Siemens BU structure (approximate FY2024/2025 data scaled for realism)
-  return [
-    {
-      BU_ID: "SI-DI", BU_Name: "Digital_Industries", CEO: "Cedrik Neike",
-      Headcount: n(72000), Revenue_FY2025: n(20_800_000_000),
-      "EBITDA_Margin_%": nf(22.4), R_D_Budget: n(2_100_000_000),
-      Key_Market: "Factory Automation & Industrial Software", "Growth_Target_%": nf(7.0),
-    },
-    {
-      BU_ID: "SI-SI", BU_Name: "Smart_Infrastructure", CEO: "Matthias Rebellius",
-      Headcount: n(74000), Revenue_FY2025: n(21_200_000_000),
-      "EBITDA_Margin_%": nf(16.8), R_D_Budget: n(1_400_000_000),
-      Key_Market: "Building Technologies & Grid Software", "Growth_Target_%": nf(8.0),
-    },
-    {
-      BU_ID: "SI-MO", BU_Name: "Mobility", CEO: "Michael Peter",
-      Headcount: n(42000), Revenue_FY2025: n(11_500_000_000),
-      "EBITDA_Margin_%": nf(9.2), R_D_Budget: n(850_000_000),
-      Key_Market: "Rail Infrastructure & Rolling Stock", "Growth_Target_%": nf(5.5),
-    },
-    {
-      BU_ID: "SI-HE", BU_Name: "Healthineers", CEO: "Bernd Montag",
-      Headcount: n(71000), Revenue_FY2025: n(22_500_000_000),
-      "EBITDA_Margin_%": nf(19.6), R_D_Budget: n(2_300_000_000),
-      Key_Market: "Medical Imaging & Diagnostics", "Growth_Target_%": nf(6.5),
-    },
-    {
-      BU_ID: "SI-FS", BU_Name: "Financial_Services", CEO: "Veronika Bienert",
-      Headcount: n(3200), Revenue_FY2025: n(1_800_000_000),
-      "EBITDA_Margin_%": nf(28.5), R_D_Budget: n(45_000_000),
-      Key_Market: "Equipment & Project Finance", "Growth_Target_%": nf(4.0),
-    },
-  ];
-}
-
-function generateSiCustomers(rng: SeededRandom): Record<string, string>[] {
-  const segments = ["Strategic", "Enterprise", "Mid_Market"] as const;
-  const segmentWeights = [15, 45, 40];
-
-  const rows: Record<string, string>[] = [];
-  for (let i = 0; i < 150; i++) {
-    const cid = `SC-${String(i + 1).padStart(4, "0")}`;
-    const company = INDUSTRIAL_COMPANIES[i % INDUSTRIAL_COMPANIES.length];
-    const industry = rng.pick(INDUSTRIES);
-    const country = rng.pick(COUNTRIES_SI);
-    const segment = rng.pickWeighted(segments, segmentWeights);
-    const am = rng.pick(SALES_REPS);
-    const firstOrder = rng.dateInRange("2005-01-01", "2023-12-31");
-
-    // Contract values based on segment (annual, EUR)
-    const cvRanges: Record<string, [number, number]> = {
-      Strategic: [50_000_000, 500_000_000],
-      Enterprise: [5_000_000, 49_000_000],
-      Mid_Market: [200_000, 4_900_000],
-    };
-    const [cvMin, cvMax] = cvRanges[segment];
-    const contractValue = rng.nextInt(cvMin, cvMax);
-    const nps = rng.nextInt(25, 92);
-
-    rows.push({
-      Customer_ID: cid,
-      Company_Name: company,
-      Industry: industry,
-      Country: country,
-      Segment: segment,
-      Account_Manager: am,
-      Contract_Value: n(contractValue),
-      First_Order_Date: firstOrder,
-      NPS: n(nps),
-    });
-  }
-  return rows;
-}
-
-function generateSiOrders(rng: SeededRandom, customers: Record<string, string>[]): Record<string, string>[] {
-  const bus = ["Digital_Industries", "Smart_Infrastructure", "Mobility", "Healthineers", "Financial_Services"] as const;
-  const buWeights = [28, 27, 16, 25, 4];
-  const orderTypes = ["New", "Service", "Upgrade", "Recurring"] as const;
-  const orderTypeWeights = [30, 28, 18, 24];
-  const statuses = ["Won", "In_Progress", "Delivered", "Cancelled"] as const;
-  const statusWeights = [35, 30, 28, 7];
-
-  const buIndustry: Record<string, string[]> = {
-    Digital_Industries: ["Automotive", "Manufacturing", "Chemicals", "Aerospace"],
-    Smart_Infrastructure: ["Energy", "Infrastructure", "Manufacturing"],
-    Mobility: ["Transport", "Infrastructure"],
-    Healthineers: ["Healthcare"],
-    Financial_Services: ["Energy", "Manufacturing", "Infrastructure", "Transport"],
-  };
-
-  const rows: Record<string, string>[] = [];
-  for (let i = 0; i < 400; i++) {
-    const oid = `SO-${String(i + 1).padStart(5, "0")}`;
-    const date = rng.dateInRange("2024-01-01", "2025-12-31");
-    const bu = rng.pickWeighted(bus, buWeights);
-    const customer = rng.pick(customers);
-    const country = customer.Country;
-    const region = COUNTRY_REGION_SI[country] || "EMEA";
-    const orderType = rng.pickWeighted(orderTypes, orderTypeWeights);
-    const status = rng.pickWeighted(statuses, statusWeights);
-    const industry = rng.pick(buIndustry[bu]);
-
-    // Order values vary by BU and type (EUR) - Siemens deals are large
-    let valueMin: number, valueMax: number;
-    switch (bu) {
-      case "Digital_Industries":
-        valueMin = 150_000; valueMax = 45_000_000; break;
-      case "Smart_Infrastructure":
-        valueMin = 200_000; valueMax = 85_000_000; break;
-      case "Mobility":
-        valueMin = 2_000_000; valueMax = 350_000_000; break;
-      case "Healthineers":
-        valueMin = 80_000; valueMax = 25_000_000; break;
-      case "Financial_Services":
-        valueMin = 500_000; valueMax = 120_000_000; break;
-      default:
-        valueMin = 100_000; valueMax = 10_000_000;
-    }
-    // Service/Recurring orders tend to be smaller than New
-    if (orderType === "Service") { valueMax = Math.round(valueMax * 0.3); }
-    if (orderType === "Recurring") { valueMax = Math.round(valueMax * 0.15); }
-    if (orderType === "Upgrade") { valueMax = Math.round(valueMax * 0.5); }
-
-    const orderValue = rng.nextInt(valueMin, valueMax);
-
-    // Delivery is 2-18 months after order
-    const orderDate = new Date(date);
-    const deliveryMonths = rng.nextInt(2, 18);
-    const deliveryDate = new Date(orderDate);
-    deliveryDate.setMonth(deliveryDate.getMonth() + deliveryMonths);
-    const deliveryStr = deliveryDate.toISOString().slice(0, 10);
-
-    // Margins vary by BU
-    const marginRanges: Record<string, [number, number]> = {
-      Digital_Industries: [18, 32], Smart_Infrastructure: [12, 24],
-      Mobility: [5, 15], Healthineers: [14, 28],
-      Financial_Services: [22, 38],
-    };
-    const [mMin, mMax] = marginRanges[bu];
-    const margin = rng.nextFloat(mMin, mMax, 1);
-
-    rows.push({
-      Order_ID: oid,
-      Date: date,
-      Business_Unit: bu,
-      Customer_ID: customer.Customer_ID,
-      Country: country,
-      Region: region,
-      Order_Value_EUR: n(orderValue),
-      Order_Type: orderType,
-      Delivery_Date: deliveryStr,
-      Status: status,
-      "Margin_%": nf(margin, 1),
-      Sales_Rep: rng.pick(SALES_REPS),
-      Industry_Vertical: industry,
-    });
-  }
-  return rows;
-}
-
-function generateSiFinancials(rng: SeededRandom): Record<string, string>[] {
-  const bus = ["Digital_Industries", "Smart_Infrastructure", "Mobility", "Healthineers", "Financial_Services"] as const;
-  const quarters = ["Q1_2024", "Q2_2024", "Q3_2024", "Q4_2024", "Q1_2025", "Q2_2025", "Q3_2025", "Q4_2025"];
-
-  // Base quarterly revenue per BU (EUR billions -> stored as EUR)
-  const baseRevQ: Record<string, number> = {
-    Digital_Industries: 4_900_000_000,
-    Smart_Infrastructure: 5_000_000_000,
-    Mobility: 2_700_000_000,
-    Healthineers: 5_400_000_000,
-    Financial_Services: 420_000_000,
-  };
-  // Quarterly growth factor
-  const qGrowth: Record<string, number> = {
-    Digital_Industries: 1.018, Smart_Infrastructure: 1.02,
-    Mobility: 1.015, Healthineers: 1.016, Financial_Services: 1.01,
-  };
-  // Margin profiles
-  const cogsRatio: Record<string, [number, number]> = {
-    Digital_Industries: [0.55, 0.62], Smart_Infrastructure: [0.60, 0.68],
-    Mobility: [0.72, 0.80], Healthineers: [0.52, 0.60],
-    Financial_Services: [0.35, 0.45],
-  };
-
-  const rows: Record<string, string>[] = [];
-  for (let qi = 0; qi < quarters.length; qi++) {
-    const quarter = quarters[qi];
-    for (const bu of bus) {
-      // Revenue grows each quarter
-      const rev = Math.round(baseRevQ[bu] * Math.pow(qGrowth[bu], qi) * rng.nextFloat(0.96, 1.05, 3));
-      const [cMin, cMax] = cogsRatio[bu];
-      const cogs = Math.round(rev * rng.nextFloat(cMin, cMax, 3));
-      const grossProfit = rev - cogs;
-      const rd = Math.round(rev * rng.nextFloat(0.07, 0.12, 3));
-      const sga = Math.round(rev * rng.nextFloat(0.08, 0.14, 3));
-      const ebitda = grossProfit - rd - sga;
-      const ebitdaMargin = parseFloat(((ebitda / rev) * 100).toFixed(1));
-
-      // Order intake: book-to-bill slightly above 1 for growth
-      const btb = rng.nextFloat(0.92, 1.18, 2);
-      const orderIntake = Math.round(rev * btb);
-      const fcf = Math.round(ebitda * rng.nextFloat(0.55, 0.80, 3));
-      const roic = rng.nextFloat(8.0, 22.0, 1);
-
-      rows.push({
-        Quarter: quarter,
-        Business_Unit: bu,
-        Revenue: n(rev),
-        COGS: n(cogs),
-        Gross_Profit: n(grossProfit),
-        R_D: n(rd),
-        SGA: n(sga),
-        EBITDA: n(ebitda),
-        "EBITDA_Margin_%": nf(ebitdaMargin, 1),
-        Order_Intake: n(orderIntake),
-        Book_to_Bill: nf(btb),
-        Free_Cash_Flow: n(fcf),
-        "ROIC_%": nf(roic, 1),
-      });
-    }
-  }
-  return rows;
-}
-
-function generateSiEmployees(rng: SeededRandom): Record<string, string>[] {
-  const bus = ["Digital_Industries", "Smart_Infrastructure", "Mobility", "Healthineers", "Financial_Services"] as const;
-  const functions = ["Engineering", "R_D", "Sales", "Manufacturing", "Service", "Corporate"] as const;
-
-  // Headcount distribution per BU (sums to BU total roughly)
-  const hcDist: Record<string, Record<string, number>> = {
-    Digital_Industries: { Engineering: 18000, R_D: 14000, Sales: 10000, Manufacturing: 22000, Service: 5000, Corporate: 3000 },
-    Smart_Infrastructure: { Engineering: 16000, R_D: 9000, Sales: 12000, Manufacturing: 26000, Service: 7000, Corporate: 4000 },
-    Mobility: { Engineering: 10000, R_D: 6000, Sales: 5000, Manufacturing: 15000, Service: 4000, Corporate: 2000 },
-    Healthineers: { Engineering: 14000, R_D: 16000, Sales: 12000, Manufacturing: 20000, Service: 6000, Corporate: 3000 },
-    Financial_Services: { Engineering: 400, R_D: 100, Sales: 800, Manufacturing: 0, Service: 1200, Corporate: 700 },
-  };
-
-  // Avg salary ranges by function (EUR/year)
-  const salaryRanges: Record<string, [number, number]> = {
-    Engineering: [65000, 95000], R_D: [72000, 105000], Sales: [60000, 110000],
-    Manufacturing: [38000, 58000], Service: [48000, 72000], Corporate: [55000, 88000],
-  };
-
-  const rows: Record<string, string>[] = [];
-  for (const bu of bus) {
-    for (const func of functions) {
-      const baseHC = hcDist[bu][func];
-      if (baseHC === 0) continue; // Skip Financial_Services manufacturing
-
-      const headcount = Math.round(baseHC * rng.nextFloat(0.95, 1.05, 3));
-      const [sMin, sMax] = salaryRanges[func];
-      const avgSalary = rng.nextInt(sMin, sMax);
-      // Total cost includes benefits, overhead (~1.35x salary)
-      const totalCost = Math.round(headcount * avgSalary * rng.nextFloat(1.30, 1.42, 2));
-      const utilization = func === "Manufacturing" ? rng.nextFloat(78, 95, 1)
-        : func === "Service" ? rng.nextFloat(72, 92, 1)
-        : func === "Sales" ? rng.nextFloat(65, 85, 1)
-        : rng.nextFloat(80, 96, 1);
-      const attrition = rng.nextFloat(4.0, 14.0, 1);
-      const openPositions = Math.round(headcount * rng.nextFloat(0.02, 0.08, 3));
-
-      rows.push({
-        Business_Unit: bu,
-        Function: func,
-        Headcount: n(headcount),
-        Avg_Salary: n(avgSalary),
-        Total_Cost: n(totalCost),
-        "Utilization_%": nf(utilization, 1),
-        "Attrition_%": nf(attrition, 1),
-        Open_Positions: n(openPositions),
-      });
-    }
-  }
-  return rows;
-}
-
-function generateSiProjects(rng: SeededRandom, customers: Record<string, string>[]): Record<string, string>[] {
-  const bus = ["Digital_Industries", "Smart_Infrastructure", "Mobility", "Healthineers", "Financial_Services"] as const;
-  const buWeights = [30, 28, 18, 20, 4];
-  const statuses = ["Green", "Yellow", "Red"] as const;
-  const statusWeights = [60, 28, 12];
-
-  const pmNames = [
-    "Dr. Klaus Fischer", "Ing. Maria Schneider", "Dipl.-Ing. Thomas Braun",
-    "Sarah Mitchell, PMP", "Jean-Pierre Moreau", "Ing. Anna Kovacs",
-    "Dr. Raj Mehta", "Kenji Watanabe", "Carlos Rodriguez, PMP",
-    "Dr. Elena Petrova", "Lars Johansson", "Fatima Al-Sayed",
-    "Dr. Wei Chen", "Patrick O'Sullivan", "Marco Bianchi, PMP",
+  // ── Customers (100 rows) ──
+  const siCountries = ["Germany", "UK", "France", "USA", "China", "Japan", "India", "Brazil", "Italy", "Spain", "Netherlands", "Switzerland", "Austria", "Poland", "Australia"] as const;
+  const segments = ["Key Account", "Enterprise", "Mid-Market"] as const;
+  const creditRatings = ["AAA", "AA+", "AA", "AA-", "A+", "A", "A-", "BBB+", "BBB", "BBB-", "BB+", "BB", "B"] as const;
+  const accountManagers = [
+    "Klaus Berger", "Sarah Thompson", "Pierre Lefevre", "Chen Wei", "Priya Nair",
+    "Marco Rossi", "Kenji Ito", "Anna Kowalska", "Hans Friedrich", "Emma Collins",
+    "Rafael Santos", "Yuki Tanaka", "Thomas Meier", "Lisa Andersen", "David Kim",
   ] as const;
 
-  const rows: Record<string, string>[] = [];
+  const siCustomers: Record<string, string>[] = [];
   for (let i = 0; i < 100; i++) {
-    const pid = `SP-${String(i + 1).padStart(4, "0")}`;
-    const bu = rng.pickWeighted(bus, buWeights);
-    const prefix = rng.pick(PROJECT_NAMES_PREFIX);
-    const suffix = rng.pick(PROJECT_NAMES_SUFFIX);
-    const projectName = `${prefix} ${suffix}`;
-    const customer = rng.pick(customers);
-    const country = customer.Country;
+    const cid = `SC-${String(i + 1).padStart(3, "0")}`;
+    const comp = SI_COMPANIES[i];
+    const seg = rng.pickWeighted(segments, [25, 40, 35]);
+    const acvMin = seg === "Key Account" ? 2_000_000 : seg === "Enterprise" ? 500_000 : 100_000;
+    const acvMax = seg === "Key Account" ? 15_000_000 : seg === "Enterprise" ? 4_000_000 : 999_000;
+    const acv = rng.nextInt(acvMin, acvMax);
+    const relSince = rng.nextInt(1995, 2023);
+    const payRel = rng.nextFloat(75, 100, 1);
 
-    const startDate = rng.dateInRange("2023-01-01", "2025-06-30");
-    const durationMonths = rng.nextInt(6, 36);
-    const sd = new Date(startDate);
-    const ed = new Date(sd);
-    ed.setMonth(ed.getMonth() + durationMonths);
-    const endDate = ed.toISOString().slice(0, 10);
+    siCustomers.push({
+      Customer_ID: cid,
+      Company_Name: comp.name,
+      Industry: comp.industry,
+      Country: rng.pick(siCountries),
+      Segment: seg,
+      Account_Manager: rng.pick(accountManagers),
+      Annual_Contract_Value: n(acv),
+      Relationship_Since: n(relSince),
+      Credit_Rating: rng.pickWeighted(creditRatings, [5, 8, 12, 10, 15, 15, 10, 8, 7, 4, 3, 2, 1]),
+      Payment_Reliability_Pct: nf(payRel, 1),
+    });
+  }
 
-    // Budget ranges by BU
-    const budgetRanges: Record<string, [number, number]> = {
-      Digital_Industries: [500_000, 35_000_000],
-      Smart_Infrastructure: [800_000, 65_000_000],
-      Mobility: [5_000_000, 250_000_000],
-      Healthineers: [300_000, 18_000_000],
-      Financial_Services: [1_000_000, 50_000_000],
-    };
-    const [bMin, bMax] = budgetRanges[bu];
-    const budget = rng.nextInt(bMin, bMax);
+  // ── Orders (400 rows) ──
+  const businessUnits = ["Digital Industries", "Smart Infrastructure", "Mobility"] as const;
+  const productLines: Record<string, readonly string[]> = {
+    "Digital Industries": ["Automation", "Drives", "Industrial Software", "Process Automation"],
+    "Smart Infrastructure": ["Building Tech", "Grid Solutions", "Electrification", "Energy Storage"],
+    "Mobility": ["Rail Systems", "Signaling", "Rolling Stock", "Service & Maintenance"],
+  };
+  const orderStatuses = ["Booked", "In Production", "Shipped", "Delivered", "Invoiced"] as const;
+  const paymentTerms = ["Net 30", "Net 60", "Net 90", "Letter of Credit"] as const;
+  const orderCurrencies = ["EUR", "USD", "CNY", "GBP"] as const;
+  const regions = ["EMEA", "Americas", "APAC"] as const;
 
-    // Completion % based on current date relative to project timeline
-    const now = new Date("2025-09-15").getTime();
-    const s = sd.getTime();
-    const e = ed.getTime();
-    const rawCompletion = Math.min(100, Math.max(0, Math.round(((now - s) / (e - s)) * 100)));
-    // Add some noise
-    const completion = Math.min(100, Math.max(0, rawCompletion + rng.nextInt(-10, 5)));
+  const orders: Record<string, string>[] = [];
+  for (let i = 1; i <= 400; i++) {
+    const oid = `SO-${String(i).padStart(5, "0")}`;
+    const date = rng.dateInRange("2024-06-01", "2025-12-31");
+    const custIdx = rng.nextInt(0, 99);
+    const cid = siCustomers[custIdx].Customer_ID;
+    const bu = rng.pickWeighted(businessUnits, [45, 30, 25]);
+    const pl = rng.pick(productLines[bu]);
+    const orderValue = rng.nextInt(10_000, 5_000_000);
+    const currency = rng.pick(orderCurrencies);
+    const region = rng.pick(regions);
+    const status = rng.pickWeighted(orderStatuses, [15, 20, 15, 25, 25]);
+    const marginPct = rng.nextFloat(15, 45, 1);
 
-    // Actual cost: can be over or under budget depending on status
-    const status = rng.pickWeighted(statuses, statusWeights);
-    let costMultiplier: number;
-    switch (status) {
-      case "Green": costMultiplier = rng.nextFloat(0.85, 1.05, 3); break;
-      case "Yellow": costMultiplier = rng.nextFloat(1.02, 1.18, 3); break;
-      case "Red": costMultiplier = rng.nextFloat(1.12, 1.45, 3); break;
-    }
-    const actualCost = Math.round(budget * (completion / 100) * costMultiplier);
+    const orderDate = new Date(date);
+    const deliveryOffset = rng.nextInt(30, 365);
+    const deliveryDate = new Date(orderDate.getTime() + deliveryOffset * 24 * 3600 * 1000);
+    const delivStr = deliveryDate.toISOString().slice(0, 10);
 
-    const riskScore = status === "Green" ? rng.nextInt(1, 35)
-      : status === "Yellow" ? rng.nextInt(30, 65)
-      : rng.nextInt(55, 95);
-
-    rows.push({
-      Project_ID: pid,
-      Project_Name: projectName,
+    orders.push({
+      Order_ID: oid,
+      Date: date,
+      Customer_ID: cid,
       Business_Unit: bu,
-      Customer_ID: customer.Customer_ID,
+      Product_Line: pl,
+      Order_Value: n(orderValue),
+      Currency: currency,
+      Region: region,
+      Country: siCustomers[custIdx].Country,
+      Status: status,
+      Delivery_Date: delivStr,
+      Payment_Terms: rng.pickWeighted(paymentTerms, [30, 35, 25, 10]),
+      Margin_Pct: nf(marginPct, 1),
+    });
+  }
+
+  // ── P&L (12 rows, FY2025 monthly) ──
+  const siPnl: Record<string, string>[] = [];
+  const pnlRng = new SeededRandom(888_002);
+  for (let m = 1; m <= 12; m++) {
+    const monthLabel = `${MONTH_NAMES[m - 1]} 2025`;
+    const revenue = pnlRng.nextInt(38_000_000, 48_000_000);
+    const materialCosts = Math.round(revenue * pnlRng.nextFloat(0.38, 0.45));
+    const grossProfit = revenue - materialCosts;
+    const grossMargin = parseFloat(((grossProfit / revenue) * 100).toFixed(1));
+    const rdExpenses = Math.round(revenue * pnlRng.nextFloat(0.06, 0.09));
+    const sgaExpenses = Math.round(revenue * pnlRng.nextFloat(0.10, 0.15));
+    const restructuring = pnlRng.nextInt(0, 500_000);
+    const ebit = grossProfit - rdExpenses - sgaExpenses - restructuring;
+    const ebitMargin = parseFloat(((ebit / revenue) * 100).toFixed(1));
+    const finIncomeExpense = pnlRng.nextInt(-200_000, 100_000);
+    const tax = Math.max(0, Math.round((ebit + finIncomeExpense) * 0.28));
+    const netIncome = ebit + finIncomeExpense - tax;
+    const fcf = Math.round(netIncome + pnlRng.nextInt(-2_000_000, 3_000_000));
+    const orderIntake = pnlRng.nextInt(35_000_000, 55_000_000);
+    const bookToBill = parseFloat((orderIntake / revenue).toFixed(2));
+
+    siPnl.push({
+      Month: monthLabel,
+      Revenue: n(revenue),
+      Material_Costs: n(materialCosts),
+      Gross_Profit: n(grossProfit),
+      Gross_Margin_Pct: nf(grossMargin, 1),
+      RnD_Expenses: n(rdExpenses),
+      SGA_Expenses: n(sgaExpenses),
+      Restructuring_Charges: n(restructuring),
+      EBIT: n(ebit),
+      EBIT_Margin_Pct: nf(ebitMargin, 1),
+      Financial_Income_Expense: n(finIncomeExpense),
+      Tax: n(tax),
+      Net_Income: n(netIncome),
+      Free_Cash_Flow: n(fcf),
+      Order_Intake: n(orderIntake),
+      Book_to_Bill_Ratio: nf(bookToBill),
+    });
+  }
+
+  // ── Employees (200 rows) ──
+  const departments = ["Engineering", "Sales", "Manufacturing", "R&D", "Finance", "HR", "IT", "Quality"] as const;
+  const levels = ["Junior", "Senior", "Lead", "Manager", "Director", "VP"] as const;
+  const empCountries = ["Germany", "UK", "USA", "China", "India", "France", "Austria", "Switzerland", "Poland", "Spain"] as const;
+
+  const employees: Record<string, string>[] = [];
+  const empRng = new SeededRandom(888_003);
+  for (let i = 1; i <= 200; i++) {
+    const eid = `SE-${String(i).padStart(4, "0")}`;
+    const dept = empRng.pick(departments);
+    const level = empRng.pickWeighted(levels, [25, 30, 20, 15, 7, 3]);
+    const salaryBase: Record<string, number> = { Junior: 45000, Senior: 65000, Lead: 80000, Manager: 95000, Director: 120000, VP: 160000 };
+    const salary = Math.round(salaryBase[level] * empRng.nextFloat(0.85, 1.25));
+    const perfRating = empRng.pickWeighted([1, 2, 3, 4, 5], [3, 10, 35, 35, 17]);
+    const utilization = dept === "Engineering" || dept === "R&D" || dept === "Manufacturing"
+      ? empRng.nextFloat(65, 98, 0)
+      : empRng.nextFloat(50, 85, 0);
+    const trainingHrs = empRng.nextInt(4, 80);
+
+    employees.push({
+      Employee_ID: eid,
+      Name: `${empRng.pick(FIRST_NAMES)} ${empRng.pick(LAST_NAMES)}`,
+      Department: dept,
+      Level: level,
+      Business_Unit: empRng.pick(businessUnits),
+      Country: empRng.pick(empCountries),
+      Salary: n(salary),
+      Start_Date: empRng.dateInRange("2005-01-01", "2025-06-30"),
+      Performance_Rating: n(perfRating),
+      Utilization_Pct: nf(utilization, 0),
+      Training_Hours_YTD: n(trainingHrs),
+    });
+  }
+
+  // ── Projects (80 rows) ──
+  const projRng = new SeededRandom(888_004);
+  const projects: Record<string, string>[] = [];
+  for (let i = 0; i < 80; i++) {
+    const pid = `SP-${String(i + 1).padStart(3, "0")}`;
+    const custIdx = projRng.nextInt(0, 99);
+    const cid = siCustomers[custIdx].Customer_ID;
+    const bu = projRng.pick(businessUnits);
+    const startDate = projRng.dateInRange("2023-01-01", "2025-06-30");
+    const durationDays = projRng.nextInt(90, 730);
+    const endDate = new Date(new Date(startDate).getTime() + durationDays * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const budget = projRng.nextInt(200_000, 8_000_000);
+    const completionPct = projRng.nextInt(0, 100);
+    const actualCost = Math.round(budget * (completionPct / 100) * projRng.nextFloat(0.85, 1.20));
+    const revenueRecognized = Math.round(budget * (completionPct / 100) * projRng.nextFloat(1.05, 1.30));
+    const statusOpts = ["Planning", "Active", "On Hold", "Completed", "Cancelled"] as const;
+    const status = completionPct === 100
+      ? "Completed"
+      : completionPct === 0
+        ? "Planning"
+        : projRng.pickWeighted(statusOpts, [5, 60, 10, 15, 10]);
+    const riskLevel = actualCost > budget * (completionPct / 100) * 1.1
+      ? "Red"
+      : actualCost > budget * (completionPct / 100) * 1.0
+        ? "Yellow"
+        : "Green";
+    const pm = `${projRng.pick(FIRST_NAMES)} ${projRng.pick(LAST_NAMES)}`;
+
+    projects.push({
+      Project_ID: pid,
+      Project_Name: PROJECT_NAMES[i],
+      Customer_ID: cid,
+      Business_Unit: bu,
       Start_Date: startDate,
       End_Date: endDate,
       Budget: n(budget),
       Actual_Cost: n(actualCost),
-      "Completion_%": n(completion),
+      Revenue_Recognized: n(revenueRecognized),
+      Completion_Pct: n(completionPct),
       Status: status,
-      Project_Manager: rng.pick(pmNames),
-      Country: country,
-      Risk_Score: n(riskScore),
+      Risk_Level: riskLevel,
+      Project_Manager: pm,
     });
   }
-  return rows;
-}
 
-function generateSiSupplyChain(rng: SeededRandom): Record<string, string>[] {
-  const categories = ["Electronics", "Mechanical", "Software", "Raw_Materials", "Logistics"] as const;
-  const categoryWeights = [28, 22, 18, 18, 14];
-  const riskRatings = ["Low", "Medium", "High", "Critical"] as const;
-  const riskWeights = [35, 40, 18, 7];
-
-  const supplierCountries = [
-    "Germany", "USA", "Japan", "China", "South Korea", "Netherlands",
-    "Switzerland", "Sweden", "France", "UK", "Italy", "Taiwan",
-    "Finland", "Austria", "Denmark",
+  // ── Supply Chain (150 rows) ──
+  const supplierNames = [
+    "Foxconn Electronics", "Texas Instruments", "STMicroelectronics", "NXP Semiconductors",
+    "Murata Manufacturing", "TDK Corporation", "Panasonic Industrial", "Samsung SDI",
+    "LG Chem", "CATL Battery", "Schaeffler Bearings", "SKF Group", "NSK Ltd",
+    "Timken Company", "Bosch Rexroth", "Parker Hannifin", "Eaton Corporation",
+    "Danfoss A/S", "Schneider Components", "Rittal GmbH", "Phoenix Contact",
+    "Weidmuller GmbH", "Harting Technology", "TE Connectivity", "Amphenol Corp",
+    "Lapp Group", "Nexans SA", "Prysmian Group", "BASF Materials", "Covestro AG",
+    "Evonik Industries", "Lanxess AG", "Henkel Adhesives", "3M Industrial",
+    "Microsoft Embedded", "Wind River Systems", "Red Hat Enterprise", "VMware Industrial",
   ] as const;
+  const componentCategories = ["Electronics", "Mechanical", "Software", "Raw Materials"] as const;
+  const scCountries = ["Germany", "China", "Japan", "South Korea", "USA", "Taiwan", "Netherlands", "France", "Italy", "UK"] as const;
 
-  const rows: Record<string, string>[] = [];
-  const usedSuppliers = new Set<string>();
+  const scRng = new SeededRandom(888_005);
+  const supplyChain: Record<string, string>[] = [];
+  for (let i = 1; i <= 150; i++) {
+    const poId = `PO-${String(i).padStart(5, "0")}`;
+    const supplier = scRng.pick(supplierNames);
+    const cat = scRng.pick(componentCategories);
+    const orderDate = scRng.dateInRange("2024-01-01", "2025-10-31");
+    const leadTime = scRng.nextInt(7, 120);
+    const delivDate = new Date(new Date(orderDate).getTime() + leadTime * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const qty = scRng.nextInt(10, 5000);
+    const unitCost = scRng.nextFloat(0.50, 2500, 2);
+    const totalCost = parseFloat((qty * unitCost).toFixed(2));
+    const qualityScore = scRng.nextInt(60, 100);
+    const onTime = scRng.next() > 0.15 ? "Yes" : "No";
 
-  for (let i = 0; i < 80; i++) {
-    const sid = `SUP-${String(i + 1).padStart(3, "0")}`;
-    // Pick unique supplier
-    let supplier: string;
-    do {
-      supplier = rng.pick(SUPPLIER_NAMES);
-    } while (usedSuppliers.has(supplier) && usedSuppliers.size < SUPPLIER_NAMES.length);
-    usedSuppliers.add(supplier);
-
-    const country = rng.pick(supplierCountries);
-    const category = rng.pickWeighted(categories, categoryWeights);
-    const risk = rng.pickWeighted(riskRatings, riskWeights);
-
-    // Annual spend varies by category
-    const spendRanges: Record<string, [number, number]> = {
-      Electronics: [2_000_000, 180_000_000],
-      Mechanical: [1_500_000, 95_000_000],
-      Software: [500_000, 45_000_000],
-      Raw_Materials: [3_000_000, 250_000_000],
-      Logistics: [1_000_000, 120_000_000],
-    };
-    const [spMin, spMax] = spendRanges[category];
-    const annualSpend = rng.nextInt(spMin, spMax);
-    const qualityScore = rng.nextFloat(72.0, 99.5, 1);
-    const deliveryReliability = rng.nextFloat(82.0, 99.8, 1);
-
-    // Lead time varies by category and country
-    let baseLeadTime: number;
-    switch (category) {
-      case "Electronics":
-        baseLeadTime = country === "China" || country === "Taiwan" ? rng.nextInt(35, 90) : rng.nextInt(14, 45);
-        break;
-      case "Raw_Materials":
-        baseLeadTime = rng.nextInt(21, 75); break;
-      case "Software":
-        baseLeadTime = rng.nextInt(1, 14); break;
-      case "Logistics":
-        baseLeadTime = rng.nextInt(3, 21); break;
-      default:
-        baseLeadTime = rng.nextInt(14, 60);
-    }
-
-    const altSuppliers = rng.nextInt(0, 5);
-
-    rows.push({
-      Supplier_ID: sid,
+    supplyChain.push({
+      PO_ID: poId,
       Supplier_Name: supplier,
-      Country: country,
-      Category: category,
-      Annual_Spend: n(annualSpend),
-      Quality_Score: nf(qualityScore, 1),
-      "Delivery_Reliability_%": nf(deliveryReliability, 1),
-      Lead_Time_Days: n(baseLeadTime),
-      Risk_Rating: risk,
-      Alternative_Suppliers: n(altSuppliers),
+      Component_Category: cat,
+      Order_Date: orderDate,
+      Delivery_Date: delivDate,
+      Quantity: n(qty),
+      Unit_Cost: nf(unitCost),
+      Total_Cost: nf(totalCost),
+      Quality_Score: n(qualityScore),
+      Lead_Time_Days: n(leadTime),
+      Country_of_Origin: scRng.pick(scCountries),
+      On_Time_Delivery: onTime,
     });
   }
-  return rows;
+
+  // ── Budget vs Actual (48 rows: 4 BUs x 12 months) ──
+  const bvaRng = new SeededRandom(888_006);
+  const budgetVsActual: Record<string, string>[] = [];
+  const bvaUnits = ["Digital Industries", "Smart Infrastructure", "Mobility", "Corporate/Other"] as const;
+  const bvaRevBudgets: Record<string, number> = {
+    "Digital Industries": 20_000_000,
+    "Smart Infrastructure": 12_000_000,
+    "Mobility": 8_000_000,
+    "Corporate/Other": 2_000_000,
+  };
+  const bvaCostBudgets: Record<string, number> = {
+    "Digital Industries": 14_000_000,
+    "Smart Infrastructure": 9_000_000,
+    "Mobility": 6_200_000,
+    "Corporate/Other": 1_800_000,
+  };
+  const bvaHcBudgets: Record<string, number> = {
+    "Digital Industries": 450,
+    "Smart Infrastructure": 280,
+    "Mobility": 220,
+    "Corporate/Other": 80,
+  };
+
+  for (const bu of bvaUnits) {
+    for (let m = 1; m <= 12; m++) {
+      const monthLabel = `${MONTH_NAMES[m - 1]} 2025`;
+      const revBudget = Math.round(bvaRevBudgets[bu] / 12);
+      const revActual = Math.round(revBudget * bvaRng.nextFloat(0.88, 1.15));
+      const costBudget = Math.round(bvaCostBudgets[bu] / 12);
+      const costActual = Math.round(costBudget * bvaRng.nextFloat(0.90, 1.12));
+      const hcBudget = bvaHcBudgets[bu];
+      const hcActual = hcBudget + bvaRng.nextInt(-10, 10);
+
+      budgetVsActual.push({
+        Business_Unit: bu,
+        Month: monthLabel,
+        Revenue_Budget: n(revBudget),
+        Revenue_Actual: n(revActual),
+        Revenue_Variance: n(revActual - revBudget),
+        Cost_Budget: n(costBudget),
+        Cost_Actual: n(costActual),
+        Cost_Variance: n(costActual - costBudget),
+        Headcount_Budget: n(hcBudget),
+        Headcount_Actual: n(hcActual),
+      });
+    }
+  }
+
+  // ── Assemble all tables ──
+  return [
+    {
+      id: "si_orders",
+      name: "Siemens Orders",
+      rows: orders,
+      headers: ["Order_ID", "Date", "Customer_ID", "Business_Unit", "Product_Line", "Order_Value", "Currency", "Region", "Country", "Status", "Delivery_Date", "Payment_Terms", "Margin_Pct"],
+      columnTypes: {
+        Order_ID: "string", Date: "date", Customer_ID: "string", Business_Unit: "string",
+        Product_Line: "string", Order_Value: "number", Currency: "string", Region: "string",
+        Country: "string", Status: "string", Delivery_Date: "date", Payment_Terms: "string",
+        Margin_Pct: "number",
+      },
+    },
+    {
+      id: "si_customers",
+      name: "Siemens Customers",
+      rows: siCustomers,
+      headers: ["Customer_ID", "Company_Name", "Industry", "Country", "Segment", "Account_Manager", "Annual_Contract_Value", "Relationship_Since", "Credit_Rating", "Payment_Reliability_Pct"],
+      columnTypes: {
+        Customer_ID: "string", Company_Name: "string", Industry: "string", Country: "string",
+        Segment: "string", Account_Manager: "string", Annual_Contract_Value: "number",
+        Relationship_Since: "number", Credit_Rating: "string", Payment_Reliability_Pct: "number",
+      },
+    },
+    {
+      id: "si_pnl",
+      name: "Siemens P&L (Monthly FY2025)",
+      rows: siPnl,
+      headers: ["Month", "Revenue", "Material_Costs", "Gross_Profit", "Gross_Margin_Pct", "RnD_Expenses", "SGA_Expenses", "Restructuring_Charges", "EBIT", "EBIT_Margin_Pct", "Financial_Income_Expense", "Tax", "Net_Income", "Free_Cash_Flow", "Order_Intake", "Book_to_Bill_Ratio"],
+      columnTypes: {
+        Month: "string", Revenue: "number", Material_Costs: "number", Gross_Profit: "number",
+        Gross_Margin_Pct: "number", RnD_Expenses: "number", SGA_Expenses: "number",
+        Restructuring_Charges: "number", EBIT: "number", EBIT_Margin_Pct: "number",
+        Financial_Income_Expense: "number", Tax: "number", Net_Income: "number",
+        Free_Cash_Flow: "number", Order_Intake: "number", Book_to_Bill_Ratio: "number",
+      },
+    },
+    {
+      id: "si_employees",
+      name: "Siemens Employees",
+      rows: employees,
+      headers: ["Employee_ID", "Name", "Department", "Level", "Business_Unit", "Country", "Salary", "Start_Date", "Performance_Rating", "Utilization_Pct", "Training_Hours_YTD"],
+      columnTypes: {
+        Employee_ID: "string", Name: "string", Department: "string", Level: "string",
+        Business_Unit: "string", Country: "string", Salary: "number", Start_Date: "date",
+        Performance_Rating: "number", Utilization_Pct: "number", Training_Hours_YTD: "number",
+      },
+    },
+    {
+      id: "si_projects",
+      name: "Siemens Projects",
+      rows: projects,
+      headers: ["Project_ID", "Project_Name", "Customer_ID", "Business_Unit", "Start_Date", "End_Date", "Budget", "Actual_Cost", "Revenue_Recognized", "Completion_Pct", "Status", "Risk_Level", "Project_Manager"],
+      columnTypes: {
+        Project_ID: "string", Project_Name: "string", Customer_ID: "string",
+        Business_Unit: "string", Start_Date: "date", End_Date: "date", Budget: "number",
+        Actual_Cost: "number", Revenue_Recognized: "number", Completion_Pct: "number",
+        Status: "string", Risk_Level: "string", Project_Manager: "string",
+      },
+    },
+    {
+      id: "si_supply_chain",
+      name: "Siemens Supply Chain",
+      rows: supplyChain,
+      headers: ["PO_ID", "Supplier_Name", "Component_Category", "Order_Date", "Delivery_Date", "Quantity", "Unit_Cost", "Total_Cost", "Quality_Score", "Lead_Time_Days", "Country_of_Origin", "On_Time_Delivery"],
+      columnTypes: {
+        PO_ID: "string", Supplier_Name: "string", Component_Category: "string",
+        Order_Date: "date", Delivery_Date: "date", Quantity: "number", Unit_Cost: "number",
+        Total_Cost: "number", Quality_Score: "number", Lead_Time_Days: "number",
+        Country_of_Origin: "string", On_Time_Delivery: "string",
+      },
+    },
+    {
+      id: "si_budget_vs_actual",
+      name: "Siemens Budget vs Actual",
+      rows: budgetVsActual,
+      headers: ["Business_Unit", "Month", "Revenue_Budget", "Revenue_Actual", "Revenue_Variance", "Cost_Budget", "Cost_Actual", "Cost_Variance", "Headcount_Budget", "Headcount_Actual"],
+      columnTypes: {
+        Business_Unit: "string", Month: "string", Revenue_Budget: "number",
+        Revenue_Actual: "number", Revenue_Variance: "number", Cost_Budget: "number",
+        Cost_Actual: "number", Cost_Variance: "number", Headcount_Budget: "number",
+        Headcount_Actual: "number",
+      },
+    },
+  ];
 }

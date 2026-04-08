@@ -20,7 +20,7 @@ export function generateRevolutData(): DemoCompany {
     name: "Revolut",
     industry: "FinTech / Digital Banking",
     description:
-      "Complete FinTech analytics: 500 transactions, 200 customers, 15 products, 24-month P&L, KPIs, regional breakdowns, and cost centers.",
+      "Digital banking platform: 500 transactions, 200 customers across 5 plans, 8 products, 24-month P&L and KPIs, 200 compliance events, and cost centers. ~EUR 50M revenue.",
     datasets: generateRevolutTables(),
   };
 }
@@ -33,7 +33,7 @@ export function generateSiemensData(): DemoCompany {
     name: "Siemens",
     industry: "Industrial Conglomerate",
     description:
-      "Enterprise industrial dataset: 400 orders across 5 BUs, 150 B2B customers, quarterly financials, workforce analytics, 100 projects, and supply chain data.",
+      "Industrial technology division: 400 orders across 3 BUs, 100 B2B customers, 12-month P&L, 200 employees, 80 projects, 150 supply chain POs, and budget vs actual. ~EUR 500M revenue.",
     datasets: generateSiemensTables(),
   };
 }
