@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { ThemeProvider } from "./theme-provider";
 import { ThemeToggle } from "./ThemeToggle";
+import AIChatWidget from "../components/AIChatWidget";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -109,6 +110,7 @@ export default function RootLayout({
             Built by Andrew Arbo &middot; Data Pipeline Dashboard
           </div>
         </footer>
+        <AIChatWidget />
         </ThemeProvider>
       </body>
     </html>
