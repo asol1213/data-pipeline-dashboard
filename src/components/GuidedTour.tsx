@@ -89,12 +89,16 @@ export default function GuidedTour() {
   useEffect(() => {
     if (!active) return;
 
-    function positionTooltip() {
+    async function positionTooltip() {
       const currentStep = TOUR_STEPS[step];
       if (!currentStep) return;
 
       const target = document.querySelector(currentStep.targetSelector);
       if (target) {
+        // Scroll target into view
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Wait a tick for scroll to complete before measuring
+        await new Promise((r) => setTimeout(r, 400));
         const rect = target.getBoundingClientRect();
         setTooltipPos({
           top: rect.top + window.scrollY,
@@ -142,13 +146,21 @@ export default function GuidedTour() {
 
   const currentStep = TOUR_STEPS[step];
 
-  // Calculate tooltip position (below or above target)
-  const tooltipTop = tooltipPos.top + tooltipPos.height + 12;
+  // Calculate tooltip position — keep in viewport
+  const viewportH = typeof window !== "undefined" ? window.innerHeight : 800;
+  const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const tooltipH = 200; // approximate tooltip height
+  const belowTop = tooltipPos.top + tooltipPos.height + 12;
+  const aboveTop = tooltipPos.top - tooltipH - 12;
+  // If below would go off screen, place above. If above is negative, use center.
+  const tooltipTop = belowTop + tooltipH > viewportH + window.scrollY
+    ? (aboveTop > window.scrollY ? aboveTop : window.scrollY + viewportH / 2 - tooltipH / 2)
+    : belowTop;
   const tooltipLeft = Math.max(
     16,
     Math.min(
       tooltipPos.left + tooltipPos.width / 2 - 160,
-      (typeof window !== "undefined" ? window.innerWidth : 1000) - 336
+      viewportW - 336
     )
   );
 
