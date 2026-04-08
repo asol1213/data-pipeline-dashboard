@@ -88,6 +88,18 @@ export default function RootLayout({
                   SQL Query
                 </Link>
                 <Link
+                  href="/builder"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Builder
+                </Link>
+                <Link
+                  href="/connect"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Connect
+                </Link>
+                <Link
                   href="/chat"
                   className="text-sm text-text-secondary hover:text-text-primary transition-colors"
                 >

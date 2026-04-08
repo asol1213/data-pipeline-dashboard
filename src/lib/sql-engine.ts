@@ -1,5 +1,14 @@
+export interface JoinClause {
+  joinType: "INNER" | "LEFT";
+  joinTable: string;
+  joinAlias: string;
+  onLeft: string;
+  onRight: string;
+}
+
 export interface ParsedSQL {
   table: string;
+  tableAlias: string;
   columns: string[];
   where: WhereCondition[];
   orderBy: OrderByClause[];
@@ -7,6 +16,7 @@ export interface ParsedSQL {
   aggregates: AggregateFunc[];
   groupBy: string[];
   selectAll: boolean;
+  join: JoinClause | null;
 }
 
 export interface WhereCondition {
@@ -65,7 +75,45 @@ export function parseSQL(sql: string): ParsedSQL {
   if (!fromMatch) {
     throw new SQLError("Missing FROM clause");
   }
-  const table = fromMatch[1];
+  const tableRaw = fromMatch[1];
+
+  // Check for table alias: FROM table alias (where alias is NOT a keyword)
+  let table = tableRaw;
+  let tableAlias = "";
+  const afterFrom = normalized.match(/\bFROM\s+(\S+)\s+(\S+)/i);
+  if (afterFrom) {
+    const possibleAlias = afterFrom[2];
+    const keywords = ["WHERE", "ORDER", "GROUP", "LIMIT", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON"];
+    if (!keywords.includes(possibleAlias.toUpperCase())) {
+      tableAlias = possibleAlias;
+    }
+  }
+
+  // Detect JOIN clause
+  let join: JoinClause | null = null;
+  const joinMatch = normalized.match(/\b(LEFT\s+JOIN|INNER\s+JOIN|JOIN)\s+(\S+)(?:\s+(\S+))?\s+ON\s+(\S+)\s*=\s*(\S+)/i);
+  if (joinMatch) {
+    const joinTypeRaw = joinMatch[1].toUpperCase().trim();
+    const joinType: "INNER" | "LEFT" = joinTypeRaw.startsWith("LEFT") ? "LEFT" : "INNER";
+    const joinTable = joinMatch[2];
+    // Check if token after joinTable is an alias or a keyword
+    let joinAlias = "";
+    if (joinMatch[3]) {
+      const possibleAlias = joinMatch[3];
+      if (possibleAlias.toUpperCase() !== "ON") {
+        joinAlias = possibleAlias;
+      }
+    }
+    const onLeft = joinMatch[4];
+    const onRight = joinMatch[5];
+    join = { joinType, joinTable, joinAlias, onLeft, onRight };
+  } else {
+    // Check if JOIN is present without ON clause
+    const joinWithoutOn = normalized.match(/\b(LEFT\s+JOIN|INNER\s+JOIN|JOIN)\s+(\S+)/i);
+    if (joinWithoutOn) {
+      throw new SQLError("JOIN requires an ON clause");
+    }
+  }
 
   // Extract SELECT columns (between SELECT and FROM)
   const selectMatch = normalized.match(/^SELECT\s+(.*?)\s+FROM\s/i);
@@ -83,7 +131,7 @@ export function parseSQL(sql: string): ParsedSQL {
 
   for (const item of selectItems) {
     const trimmed = item.trim();
-    const aggMatch = trimmed.match(/^(COUNT|SUM|AVG|MIN|MAX)\s*\(\s*(\*|\w+)\s*\)$/i);
+    const aggMatch = trimmed.match(/^(COUNT|SUM|AVG|MIN|MAX)\s*\(\s*(\*|[\w.]+)\s*\)$/i);
     if (aggMatch) {
       const func = aggMatch[1].toUpperCase() as AggregateFunc["func"];
       const col = aggMatch[2];
@@ -96,7 +144,7 @@ export function parseSQL(sql: string): ParsedSQL {
     }
   }
 
-  // Extract WHERE clause
+  // Extract WHERE clause - also account for JOIN ... ON before WHERE
   const where: WhereCondition[] = [];
   const whereMatch = normalized.match(/\bWHERE\s+(.*?)(?:\s+GROUP\s+BY\b|\s+ORDER\s+BY\b|\s+LIMIT\b|$)/i);
   if (whereMatch) {
@@ -137,7 +185,7 @@ export function parseSQL(sql: string): ParsedSQL {
     limit = parseInt(limitMatch[1], 10);
   }
 
-  return { table, columns, where, orderBy, limit, aggregates, groupBy, selectAll };
+  return { table, tableAlias, columns, where, orderBy, limit, aggregates, groupBy, selectAll, join };
 }
 
 function splitSelectItems(selectPart: string): string[] {
@@ -167,12 +215,12 @@ function splitSelectItems(selectPart: string): string[] {
 }
 
 function parseCondition(cond: string): WhereCondition {
-  // Match: column operator value
+  // Match: column operator value (column can be alias.column format)
   const operators = ["!=", ">=", "<=", ">", "<", "=", "LIKE"];
   for (const op of operators) {
     const regex = op === "LIKE"
-      ? new RegExp(`^(\\w+)\\s+LIKE\\s+(.+)$`, "i")
-      : new RegExp(`^(\\w+)\\s*${escapeRegex(op)}\\s*(.+)$`);
+      ? new RegExp(`^([\\w.]+)\\s+LIKE\\s+(.+)$`, "i")
+      : new RegExp(`^([\\w.]+)\\s*${escapeRegex(op)}\\s*(.+)$`);
     const match = cond.match(regex);
     if (match) {
       const column = match[1].trim();
@@ -191,6 +239,30 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Resolve a possibly-qualified column name (alias.col) to a bare column name,
+ * identifying which table it belongs to.
+ */
+function resolveColumn(
+  col: string,
+  leftAlias: string,
+  rightAlias: string,
+  leftHeaders: string[],
+  rightHeaders: string[],
+): { bare: string; source: "left" | "right" | "any" } {
+  if (col.includes(".")) {
+    const [alias, bare] = col.split(".", 2);
+    if (alias === leftAlias) return { bare, source: "left" };
+    if (alias === rightAlias) return { bare, source: "right" };
+    // If alias doesn't match, treat as bare column name
+    return { bare: col, source: "any" };
+  }
+  // Non-qualified: check both tables
+  if (leftHeaders.includes(col) && !rightHeaders.includes(col)) return { bare: col, source: "left" };
+  if (rightHeaders.includes(col) && !leftHeaders.includes(col)) return { bare: col, source: "right" };
+  return { bare: col, source: "any" };
+}
+
 export function executeQuery(
   parsed: ParsedSQL,
   datasets: Map<string, { rows: Record<string, string>[]; headers: string[]; columnTypes: Record<string, string> }>
@@ -203,6 +275,11 @@ export function executeQuery(
     throw new SQLError(
       `Table '${parsed.table}' not found. Available tables: ${available || "none"}`
     );
+  }
+
+  // If there is a JOIN, execute the join path
+  if (parsed.join) {
+    return executeJoinQuery(parsed, datasets, startTime);
   }
 
   const { rows, headers, columnTypes } = dataset;
@@ -288,6 +365,208 @@ export function executeQuery(
   }
 
   const resultRows = filteredRows.map((row) => {
+    const result: Record<string, string | number> = {};
+    for (const col of resultColumns) {
+      result[col] = row[col] ?? "";
+    }
+    return result;
+  });
+
+  return {
+    columns: resultColumns,
+    rows: resultRows,
+    rowCount: resultRows.length,
+    executionTime: Math.round((performance.now() - startTime) * 100) / 100,
+  };
+}
+
+function executeJoinQuery(
+  parsed: ParsedSQL,
+  datasets: Map<string, { rows: Record<string, string>[]; headers: string[]; columnTypes: Record<string, string> }>,
+  startTime: number
+): QueryResult {
+  const join = parsed.join!;
+
+  const leftDataset = datasets.get(parsed.table);
+  if (!leftDataset) {
+    const available = Array.from(datasets.keys()).join(", ");
+    throw new SQLError(
+      `Table '${parsed.table}' not found. Available tables: ${available || "none"}`
+    );
+  }
+
+  const rightDataset = datasets.get(join.joinTable);
+  if (!rightDataset) {
+    const available = Array.from(datasets.keys()).join(", ");
+    throw new SQLError(
+      `Table '${join.joinTable}' not found. Available tables: ${available || "none"}`
+    );
+  }
+
+  const leftAlias = parsed.tableAlias || parsed.table;
+  const rightAlias = join.joinAlias || join.joinTable;
+
+  // Resolve ON columns
+  const onLeftResolved = resolveColumn(join.onLeft, leftAlias, rightAlias, leftDataset.headers, rightDataset.headers);
+  const onRightResolved = resolveColumn(join.onRight, leftAlias, rightAlias, leftDataset.headers, rightDataset.headers);
+
+  // Determine which bare column belongs to which table in the ON clause
+  let leftOnCol: string;
+  let rightOnCol: string;
+  if (onLeftResolved.source === "left" || onLeftResolved.source === "any") {
+    leftOnCol = onLeftResolved.bare;
+    rightOnCol = onRightResolved.bare;
+  } else {
+    leftOnCol = onRightResolved.bare;
+    rightOnCol = onLeftResolved.bare;
+  }
+
+  // Perform JOIN
+  const mergedColumnTypes: Record<string, string> = { ...leftDataset.columnTypes, ...rightDataset.columnTypes };
+  // Prefix column types with alias for qualified lookups
+  for (const h of leftDataset.headers) {
+    mergedColumnTypes[`${leftAlias}.${h}`] = leftDataset.columnTypes[h];
+  }
+  for (const h of rightDataset.headers) {
+    mergedColumnTypes[`${rightAlias}.${h}`] = rightDataset.columnTypes[h];
+  }
+
+  let joinedRows: Record<string, string>[] = [];
+
+  for (const leftRow of leftDataset.rows) {
+    let matched = false;
+    for (const rightRow of rightDataset.rows) {
+      if (leftRow[leftOnCol] === rightRow[rightOnCol]) {
+        matched = true;
+        // Merge row: bare names and alias-qualified names
+        const merged: Record<string, string> = {};
+        for (const h of leftDataset.headers) {
+          merged[h] = leftRow[h] ?? "";
+          merged[`${leftAlias}.${h}`] = leftRow[h] ?? "";
+        }
+        for (const h of rightDataset.headers) {
+          // For bare name: right table overrides only if not already from left
+          if (!leftDataset.headers.includes(h)) {
+            merged[h] = rightRow[h] ?? "";
+          }
+          merged[`${rightAlias}.${h}`] = rightRow[h] ?? "";
+        }
+        joinedRows.push(merged);
+      }
+    }
+    // LEFT JOIN: if no match, include left row with NULLs for right columns
+    if (!matched && join.joinType === "LEFT") {
+      const merged: Record<string, string> = {};
+      for (const h of leftDataset.headers) {
+        merged[h] = leftRow[h] ?? "";
+        merged[`${leftAlias}.${h}`] = leftRow[h] ?? "";
+      }
+      for (const h of rightDataset.headers) {
+        if (!leftDataset.headers.includes(h)) {
+          merged[h] = "";
+        }
+        merged[`${rightAlias}.${h}`] = "";
+      }
+      joinedRows.push(merged);
+    }
+  }
+
+  // Determine all available headers (for SELECT *)
+  const allHeaders: string[] = [];
+  for (const h of leftDataset.headers) {
+    allHeaders.push(h);
+  }
+  for (const h of rightDataset.headers) {
+    if (!leftDataset.headers.includes(h)) {
+      allHeaders.push(h);
+    }
+  }
+
+  // Apply WHERE filters
+  joinedRows = joinedRows.filter((row) => {
+    return parsed.where.every((cond) => {
+      const colName = cond.column;
+      const cellValue = row[colName] ?? "";
+      const colType = mergedColumnTypes[colName];
+      return evaluateCondition(cellValue, cond, colType);
+    });
+  });
+
+  // GROUP BY + aggregates on joined data
+  if (parsed.groupBy.length > 0 || parsed.aggregates.length > 0) {
+    return executeGroupBy(parsed, joinedRows, allHeaders, mergedColumnTypes, startTime);
+  }
+
+  // Apply ORDER BY
+  if (parsed.orderBy.length > 0) {
+    joinedRows = [...joinedRows].sort((a, b) => {
+      for (const ob of parsed.orderBy) {
+        const aVal = a[ob.column] ?? "";
+        const bVal = b[ob.column] ?? "";
+        let cmp: number;
+        const colType = mergedColumnTypes[ob.column];
+        if (colType === "number") {
+          cmp = Number(aVal) - Number(bVal);
+        } else {
+          cmp = aVal.localeCompare(bVal);
+        }
+        if (cmp !== 0) {
+          return ob.direction === "DESC" ? -cmp : cmp;
+        }
+      }
+      return 0;
+    });
+  }
+
+  // Apply LIMIT
+  if (parsed.limit !== null) {
+    joinedRows = joinedRows.slice(0, parsed.limit);
+  }
+
+  // Select columns
+  let resultColumns: string[];
+  if (parsed.selectAll || (parsed.columns.length === 0 && parsed.aggregates.length === 0)) {
+    resultColumns = allHeaders;
+  } else {
+    resultColumns = parsed.columns;
+  }
+
+  // Handle aggregate-only queries (no GROUP BY)
+  if (parsed.aggregates.length > 0 && parsed.groupBy.length === 0) {
+    const resultRow: Record<string, string | number> = {};
+    for (const agg of parsed.aggregates) {
+      // For join aggregates, resolve column from joined rows
+      const aggCol = agg.column;
+      if (agg.func === "COUNT") {
+        resultRow[agg.alias] = joinedRows.length;
+      } else {
+        const values = joinedRows
+          .map((r) => Number(r[aggCol]))
+          .filter((v) => !isNaN(v));
+        if (values.length === 0) {
+          resultRow[agg.alias] = 0;
+        } else {
+          switch (agg.func) {
+            case "SUM": resultRow[agg.alias] = Math.round(values.reduce((a, b) => a + b, 0) * 100) / 100; break;
+            case "AVG": resultRow[agg.alias] = Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100; break;
+            case "MIN": resultRow[agg.alias] = Math.min(...values); break;
+            case "MAX": resultRow[agg.alias] = Math.max(...values); break;
+          }
+        }
+      }
+    }
+    for (const col of parsed.columns) {
+      resultRow[col] = joinedRows.length > 0 ? (joinedRows[0][col] ?? "") : "";
+    }
+    return {
+      columns: [...parsed.columns, ...parsed.aggregates.map((a) => a.alias)],
+      rows: [resultRow],
+      rowCount: 1,
+      executionTime: Math.round((performance.now() - startTime) * 100) / 100,
+    };
+  }
+
+  const resultRows = joinedRows.map((row) => {
     const result: Record<string, string | number> = {};
     for (const col of resultColumns) {
       result[col] = row[col] ?? "";
