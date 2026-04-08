@@ -171,9 +171,9 @@ export default function GuidedTour() {
   const spotH = tooltipPos.height + 8;
 
   return (
-    <div className="fixed inset-0 z-[200]" aria-modal="true">
+    <div className="fixed inset-0 z-[200] pointer-events-none" aria-modal="true">
       {/* Dark overlay with spotlight cutout */}
-      <div className="absolute inset-0 bg-black/70 transition-all duration-300">
+      <div className="absolute inset-0 bg-black/70 transition-all duration-300 pointer-events-none">
         <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
           <defs>
             <mask id="tour-spotlight">
@@ -201,7 +201,7 @@ export default function GuidedTour() {
 
       {/* Tooltip */}
       <div
-        className="absolute z-10 w-80 bg-bg-card border border-border-subtle rounded-xl shadow-2xl p-5 transition-all duration-300"
+        className="absolute z-[210] w-80 bg-bg-card border border-border-subtle rounded-xl shadow-2xl p-5 transition-all duration-300 pointer-events-auto"
         style={{ top: tooltipTop, left: tooltipLeft }}
       >
         {/* Step indicator */}
