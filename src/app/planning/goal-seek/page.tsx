@@ -74,19 +74,44 @@ export default function GoalSeekPage() {
     const currentInput = baseKPIs[inputMetric as keyof ScenarioKPIs] as number;
 
     const computeOutput = (inputValue: number): number => {
-      // Compute the change ratio for the input metric
-      const changeRatio = currentInput !== 0 ? (inputValue - currentInput) / Math.abs(currentInput) : 0;
+      // Direct P&L model: Revenue -> COGS -> GP -> OpEx -> EBITDA -> Net Income
+      // This ensures increasing revenue INCREASES net income (positive relationship)
+      const cogsRatio = baseKPIs.cogs / (baseKPIs.revenue || 1); // ~42.5%
+      const baseOpEx = baseKPIs.opEx;
+      const baseMarketing = baseKPIs.marketing;
 
-      // Map input changes to scenario assumptions
-      const assumptions = {
-        revenueChange: inputMetric === "revenue" ? changeRatio : 0,
-        costReduction: inputMetric === "cogs" ? -changeRatio : 0,
-        headcountChange: 0,
-        marketingSpend: inputMetric === "marketing" ? changeRatio : (inputMetric === "opEx" ? changeRatio : 0),
-      };
+      let revenue = baseKPIs.revenue;
+      let cogs = baseKPIs.cogs;
+      let opEx = baseOpEx;
+      let marketing = baseMarketing;
 
-      const result = computeScenarioKPIs(baseKPIs, assumptions);
-      return result[targetMetric as keyof ScenarioKPIs] as number;
+      // Apply the input change to the selected metric
+      if (inputMetric === "revenue") {
+        revenue = inputValue;
+        cogs = revenue * cogsRatio; // COGS scales with revenue
+      } else if (inputMetric === "cogs") {
+        cogs = inputValue;
+      } else if (inputMetric === "opEx") {
+        opEx = inputValue;
+      } else if (inputMetric === "marketing") {
+        marketing = inputValue;
+        opEx = baseOpEx - baseMarketing + marketing; // replace marketing portion
+      }
+
+      const grossProfit = revenue - cogs;
+      const ebitda = grossProfit - opEx;
+      const depreciation = baseKPIs.revenue * 0.03; // fixed
+      const interest = baseKPIs.revenue * 0.01;     // fixed
+      const preTax = ebitda - depreciation - interest;
+      const tax = Math.max(0, preTax * 0.25);
+      const netIncome = preTax - tax;
+
+      // Return the targeted metric
+      if (targetMetric === "netIncome") return netIncome;
+      if (targetMetric === "ebitda") return ebitda;
+      if (targetMetric === "grossProfit") return grossProfit;
+      if (targetMetric === "revenue") return revenue;
+      return netIncome;
     };
 
     const seekResult = goalSeek(currentInput, targetValue, computeOutput);

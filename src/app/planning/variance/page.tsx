@@ -260,45 +260,85 @@ export default function VariancePage() {
             </div>
           </div>
 
-          {/* Waterfall Chart (CSS-based) */}
+          {/* Waterfall Chart */}
           <div className="bg-bg-card rounded-xl border border-border-subtle p-6">
             <h3 className="text-sm font-semibold text-text-primary mb-4">Variance Waterfall</h3>
-            <div className="flex items-end gap-2 h-48">
-              {/* Budget bar */}
-              <div className="flex flex-col items-center flex-1">
-                <div
-                  className="w-full bg-blue-500/60 rounded-t-sm min-h-[4px]"
-                  style={{ height: `${Math.min(100, Math.abs(result.totalBudget) / Math.max(Math.abs(result.totalBudget), Math.abs(result.totalActual)) * 100)}%` }}
-                />
-                <span className="text-[10px] text-text-muted mt-1 truncate w-full text-center">Budget</span>
-              </div>
-              {/* Variance bars */}
-              {result.items.map(item => {
-                const maxVar = Math.max(...result.items.map(i => Math.abs(i.variance)), 1);
-                const pct = Math.min(100, (Math.abs(item.variance) / maxVar) * 80);
-                return (
-                  <div key={item.category} className="flex flex-col items-center flex-1">
-                    <div
-                      className={`w-full rounded-t-sm min-h-[4px] ${
-                        item.status === "Favorable" ? "bg-emerald-500/60" : "bg-red-500/60"
-                      }`}
-                      style={{ height: `${pct}%` }}
-                    />
-                    <span className="text-[10px] text-text-muted mt-1 truncate w-full text-center">
-                      {item.category.length > 8 ? item.category.substring(0, 8) + "..." : item.category}
-                    </span>
-                  </div>
-                );
-              })}
-              {/* Actual bar */}
-              <div className="flex flex-col items-center flex-1">
-                <div
-                  className="w-full bg-purple-500/60 rounded-t-sm min-h-[4px]"
-                  style={{ height: `${Math.min(100, Math.abs(result.totalActual) / Math.max(Math.abs(result.totalBudget), Math.abs(result.totalActual)) * 100)}%` }}
-                />
-                <span className="text-[10px] text-text-muted mt-1 truncate w-full text-center">Actual</span>
-              </div>
-            </div>
+            {(() => {
+              // Compute running totals for waterfall positioning
+              const chartHeight = 192; // px
+              let runningTotal = result.totalBudget;
+              const bars: { label: string; start: number; end: number; type: "budget" | "actual" | "favorable" | "unfavorable" }[] = [];
+
+              // Budget bar: from 0 to budget
+              bars.push({ label: "Budget", start: 0, end: result.totalBudget, type: "budget" });
+
+              // Variance bars: each starts where the previous ended
+              for (const item of result.items) {
+                const start = runningTotal;
+                runningTotal += item.variance;
+                bars.push({
+                  label: item.category.length > 10 ? item.category.substring(0, 10) + ".." : item.category,
+                  start,
+                  end: runningTotal,
+                  type: item.status === "Favorable" ? "favorable" : "unfavorable",
+                });
+              }
+
+              // Actual bar: from 0 to actual total
+              bars.push({ label: "Actual", start: 0, end: result.totalActual, type: "actual" });
+
+              // Scale: find the range of all values
+              const allValues = bars.flatMap(b => [b.start, b.end]);
+              const minVal = Math.min(0, ...allValues);
+              const maxVal = Math.max(...allValues);
+              const range = maxVal - minVal || 1;
+
+              const toY = (val: number) => chartHeight - ((val - minVal) / range) * chartHeight;
+              const minBarHeight = 20; // minimum visible bar height
+
+              return (
+                <div className="flex items-end gap-2" style={{ height: `${chartHeight + 50}px`, position: "relative" }}>
+                  {bars.map((bar, idx) => {
+                    const topVal = Math.max(bar.start, bar.end);
+                    const bottomVal = Math.min(bar.start, bar.end);
+                    const barTop = toY(topVal);
+                    let barHeight = toY(bottomVal) - toY(topVal);
+                    if (barHeight < minBarHeight) barHeight = minBarHeight;
+
+                    const colorClass =
+                      bar.type === "budget" ? "bg-blue-500/60" :
+                      bar.type === "actual" ? "bg-purple-500/60" :
+                      bar.type === "favorable" ? "bg-emerald-500/60" :
+                      "bg-red-500/60";
+
+                    const displayValue = bar.type === "budget" || bar.type === "actual"
+                      ? bar.end
+                      : bar.end - bar.start;
+
+                    return (
+                      <div key={idx} className="flex flex-col items-center flex-1" style={{ position: "relative", height: `${chartHeight + 50}px` }}>
+                        {/* Value label */}
+                        <div
+                          className="text-[9px] font-mono text-text-muted text-center w-full absolute"
+                          style={{ top: `${Math.max(0, barTop - 14)}px` }}
+                        >
+                          {displayValue >= 0 ? "+" : ""}{formatNumber(displayValue, "currency")}
+                        </div>
+                        {/* Bar */}
+                        <div
+                          className={`w-full rounded-sm ${colorClass} absolute`}
+                          style={{ top: `${barTop}px`, height: `${barHeight}px` }}
+                        />
+                        {/* Label */}
+                        <span className="text-[10px] text-text-muted truncate w-full text-center absolute" style={{ bottom: 0 }}>
+                          {bar.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Variance Table */}

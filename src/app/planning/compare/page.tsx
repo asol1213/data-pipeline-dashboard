@@ -36,14 +36,14 @@ const DEFAULT_BASE: ScenarioKPIs = {
 
 const DEFAULT_BEST: ScenarioAssumptions = {
   revenueChange: 0.2,
-  costReduction: 0.1,
-  headcountChange: 0,
+  costReduction: 0.15,
+  headcountChange: -0.05,
   marketingSpend: 0.1,
 };
 
 const DEFAULT_WORST: ScenarioAssumptions = {
   revenueChange: -0.15,
-  costReduction: -0.05,
+  costReduction: -0.10,
   headcountChange: 0.1,
   marketingSpend: -0.2,
 };

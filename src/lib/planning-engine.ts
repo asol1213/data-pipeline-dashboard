@@ -40,13 +40,12 @@ export function computeScenarioKPIs(
   const ebitda = grossProfit - opEx;
   const ebitdaMargin = revenue !== 0 ? (ebitda / revenue) * 100 : 0;
 
-  // Simplified: Net Income = EBITDA minus a fixed percentage for D&A, interest, tax
-  const daInterestTax = base.revenue !== 0
-    ? (base.revenue - base.netIncome - (base.revenue - base.cogs - base.opEx - (base.revenue - base.cogs - base.opEx - base.ebitda))) * (revenue / base.revenue)
-    : 0;
-  // Simpler approximation:
-  const overhead = base.ebitda - base.netIncome; // D&A + interest + tax from base
-  const netIncome = ebitda - overhead;
+  // Fixed charges derived from base revenue
+  const depreciation = base.revenue * 0.03;
+  const interest = base.revenue * 0.01;
+  const preTaxIncome = ebitda - depreciation - interest;
+  const tax = Math.max(0, preTaxIncome * 0.25); // no tax if loss
+  const netIncome = preTaxIncome - tax;
   const netMargin = revenue !== 0 ? (netIncome / revenue) * 100 : 0;
 
   return {
@@ -241,25 +240,22 @@ export function goalSeek(
   maxIterations: number = 100,
   tolerance: number = 0.001
 ): GoalSeekResult {
-  // Determine search bounds: try a wide range
-  let low = currentInput * -2;
-  let high = currentInput * 3;
+  // Revenue / cost inputs can't be negative, so low starts at 0
+  let low = 0;
+  let high = Math.max(currentInput * 3, 1000000);
 
   // Ensure bounds are meaningful
   if (low === high) {
-    low = -1000000;
     high = 1000000;
-  }
-  if (low > high) {
-    const tmp = low;
-    low = high;
-    high = tmp;
   }
 
   // Determine direction: does increasing input increase output?
-  const outputAtLow = computeOutput(low);
-  const outputAtHigh = computeOutput(high);
-  const increasing = outputAtHigh > outputAtLow;
+  // Test near the current input to get accurate local direction
+  const testLow = currentInput * 0.9;
+  const testHigh = currentInput * 1.1;
+  const outputAtTestLow = computeOutput(testLow);
+  const outputAtTestHigh = computeOutput(testHigh);
+  const increasing = outputAtTestHigh > outputAtTestLow;
 
   let iterations = 0;
   let mid = currentInput;
@@ -482,43 +478,78 @@ export interface RollingForecastMonth {
 export function generateRollingForecastData(
   metric: "revenue" | "ebitda" | "netIncome" = "revenue"
 ): RollingForecastMonth[] {
-  // Base values per metric (monthly)
-  const bases: Record<string, number> = {
-    revenue: 1000000,
-    ebitda: 300000,
-    netIncome: 200000,
-  };
-  const base = bases[metric] || 1000000;
-
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  // Seasonal pattern multipliers
-  const seasonal = [0.85, 0.88, 0.95, 1.0, 1.05, 1.08, 1.02, 0.98, 1.1, 1.15, 1.2, 1.3];
+  // Revenue base 1M, ~3% month-over-month growth, volatile seasonal
+  const revBase = 1000000;
+  const revSeasonal = [0.82, 0.85, 0.97, 1.02, 1.08, 1.15, 1.05, 0.95, 1.12, 1.18, 1.25, 1.38];
+  // Actual variance: some months beat budget by 15%, others miss by 20%
+  const revActualVar = [0.08, -0.12, 0.15, -0.05, 0.12, -0.18, 0.10, -0.08, 0.15, -0.06, 0.14, 0.20];
 
-  // Budget: set in January with slight growth trajectory
-  const budgetGrowth = 0.02; // 2% month-over-month
+  // EBITDA: ~25% margin of revenue, MORE volatile (±15%)
+  const ebitdaMarginBase = 0.25;
+  const ebitdaVolatility = [0.10, -0.12, 0.15, -0.08, 0.13, -0.15, 0.08, -0.12, 0.14, -0.10, 0.12, 0.16];
 
-  // Actual: real performance with some volatility
-  const actualVariance = [0.03, -0.02, 0.05, -0.01, 0.04, 0.02, -0.03, 0.01, 0.06, 0.03, 0.05, 0.08];
+  // Net Income: ~12% margin of revenue, MOST volatile (±25%)
+  const niMarginBase = 0.12;
+  const niVolatility = [0.15, -0.20, 0.22, -0.12, 0.18, -0.25, 0.14, -0.18, 0.20, -0.15, 0.19, 0.25];
+
+  // Generate revenue data first (all metrics derive from revenue for consistency)
+  const revenueData = months.map((_month, i) => {
+    const growthFactor = Math.pow(1.03, i);
+    const budget = Math.round(revBase * growthFactor);
+    const seasonalActual = revBase * growthFactor * revSeasonal[i];
+    const actual = Math.round(seasonalActual * (1 + revActualVar[i]));
+    return { budget, actual };
+  });
 
   return months.map((month, i) => {
-    const seasonalBase = base * seasonal[i];
-    const budget = Math.round(base * (1 + budgetGrowth * i));
+    let budget: number;
+    let actual: number;
 
-    // Actual: seasonal + variance
-    const actual = Math.round(seasonalBase * (1 + actualVariance[i]));
+    if (metric === "revenue") {
+      budget = revenueData[i].budget;
+      actual = revenueData[i].actual;
+    } else if (metric === "ebitda") {
+      // EBITDA = revenue * margin with higher volatility
+      budget = Math.round(revenueData[i].budget * ebitdaMarginBase);
+      actual = Math.round(revenueData[i].actual * ebitdaMarginBase * (1 + ebitdaVolatility[i]));
+    } else {
+      // Net Income = revenue * margin with highest volatility
+      budget = Math.round(revenueData[i].budget * niMarginBase);
+      actual = Math.round(revenueData[i].actual * niMarginBase * (1 + niVolatility[i]));
+    }
 
-    // Q1 Forecast (set in April): adjusts based on Q1 actuals, +/- 5%
-    const q1Adj = i < 3 ? 0 : (actual > budget ? 0.03 : -0.02);
-    const forecast_q1 = i < 3 ? actual : Math.round(budget * (1 + q1Adj) * seasonal[i] / (seasonal[i] || 1));
+    // Q1 Forecast (available from Apr onward): deviates 5-10% from budget
+    let forecast_q1: number;
+    if (i < 3) {
+      forecast_q1 = actual; // Q1 months use actual
+    } else {
+      // Q1 forecast deviates 5-10% from budget, trending toward actual
+      const q1Deviation = 0.05 + (i - 3) * 0.006; // grows slightly over time
+      const q1Dir = actual > budget ? 1 : -1;
+      forecast_q1 = Math.round(budget * (1 + q1Dir * q1Deviation));
+    }
 
-    // Q2 Forecast (set in July): +/- 10% adjustment
-    const q2Adj = i < 6 ? 0 : (actual > budget ? 0.06 : -0.04);
-    const forecast_q2 = i < 6 ? actual : Math.round(budget * (1 + q2Adj) * seasonal[i] / (seasonal[i] || 1));
+    // Q2 Forecast (available from Jul onward): deviates 10-20% from budget
+    let forecast_q2: number;
+    if (i < 6) {
+      forecast_q2 = actual; // H1 months use actual
+    } else {
+      const q2Deviation = 0.10 + (i - 6) * 0.018;
+      const q2Dir = actual > budget ? 1 : -1;
+      forecast_q2 = Math.round(budget * (1 + q2Dir * q2Deviation));
+    }
 
-    // Q3 Forecast (set in October): close to actual +/- 3%
-    const q3Adj = i < 9 ? 0 : (actual > budget ? 0.02 : -0.01);
-    const forecast_q3 = i < 9 ? actual : Math.round(budget * (1 + q3Adj) * seasonal[i] / (seasonal[i] || 1));
+    // Q3 Forecast (available from Oct onward): deviates 5-8% from budget
+    let forecast_q3: number;
+    if (i < 9) {
+      forecast_q3 = actual; // First 9 months use actual
+    } else {
+      const q3Deviation = 0.05 + (i - 9) * 0.012;
+      const q3Dir = actual > budget ? 1 : -1;
+      forecast_q3 = Math.round(budget * (1 + q3Dir * q3Deviation));
+    }
 
     return {
       month,
@@ -575,11 +606,25 @@ export function generateScenarioComparisonData(
   const bestVal = bestKPIs[metric] as number;
   const worstVal = worstKPIs[metric] as number;
 
-  // Monthly spread (annual / 12 * seasonal)
-  return months.map((month, i) => ({
-    month,
-    bestCase: Math.round((bestVal / 12) * seasonal[i]),
-    baseCase: Math.round((baseVal / 12) * seasonal[i]),
-    worstCase: Math.round((worstVal / 12) * seasonal[i]),
-  }));
+  // Monthly values with GROWING divergence: Jan close together, Dec far apart
+  return months.map((month, i) => {
+    const monthlyBase = (baseVal / 12) * seasonal[i];
+    const monthlyBest = (bestVal / 12) * seasonal[i];
+    const monthlyWorst = (worstVal / 12) * seasonal[i];
+
+    // Divergence factor grows from 0.3 in Jan to 1.5 in Dec
+    const divergence = 0.3 + (i / 11) * 1.2;
+
+    // Best case: base + scaled-up delta from base
+    const bestDelta = (monthlyBest - monthlyBase) * divergence;
+    // Worst case: base + scaled-up delta from base
+    const worstDelta = (monthlyWorst - monthlyBase) * divergence;
+
+    return {
+      month,
+      bestCase: Math.round(monthlyBase + bestDelta),
+      baseCase: Math.round(monthlyBase),
+      worstCase: Math.round(monthlyBase + worstDelta),
+    };
+  });
 }
