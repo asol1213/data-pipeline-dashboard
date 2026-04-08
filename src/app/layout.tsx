@@ -112,6 +112,12 @@ export default function RootLayout({
                   Builder
                 </Link>
                 <Link
+                  href="/model"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Data Model
+                </Link>
+                <Link
                   href="/connect"
                   className="text-sm text-text-secondary hover:text-text-primary transition-colors"
                 >
