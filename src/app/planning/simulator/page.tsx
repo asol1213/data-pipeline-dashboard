@@ -75,6 +75,18 @@ export default function SimulatorPage() {
 
   return (
     <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 mb-4 text-sm">
+        <a href="/planning" className="text-text-muted hover:text-text-primary transition-colors">← Planning Hub</a>
+        <span className="text-text-muted">|</span>
+        <a href="/planning/budget" className="text-text-muted hover:text-accent transition-colors text-xs">Budget</a>
+        <a href="/planning/variance" className="text-text-muted hover:text-accent transition-colors text-xs">Variance</a>
+        <a href="/planning/forecast" className="text-text-muted hover:text-accent transition-colors text-xs">Forecast</a>
+        <a href="/planning/compare" className="text-text-muted hover:text-accent transition-colors text-xs">Compare</a>
+        <a href="/planning/headcount" className="text-text-muted hover:text-accent transition-colors text-xs">Headcount</a>
+        <a href="/planning/cashflow" className="text-text-muted hover:text-accent transition-colors text-xs">Cash Flow</a>
+        <a href="/planning/goal-seek" className="text-text-muted hover:text-accent transition-colors text-xs">Goal Seek</a>
+      </div>
       <div className="dashboard-header rounded-2xl p-6 mb-8">
         <h1 className="text-2xl font-bold text-white">Live P&L Simulator</h1>
         <p className="text-sm text-blue-200 mt-1">
@@ -108,22 +120,22 @@ export default function SimulatorPage() {
       {/* P&L Table */}
       <div className="bg-bg-card rounded-xl border border-border-subtle overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
             <thead>
               <tr className="border-b border-border-subtle">
-                <th className="text-left px-4 py-3 text-text-muted font-medium w-56">
+                <th className="text-left px-4 py-3 text-text-muted font-medium" style={{ width: "20%" }}>
                   Line Item
                 </th>
-                <th className="text-right px-4 py-3 text-text-muted font-medium">
+                <th className="text-right px-4 py-3 text-text-muted font-medium" style={{ width: "18%" }}>
                   Current
                 </th>
-                <th className="text-right px-4 py-3 text-text-muted font-medium">
+                <th className="text-right px-4 py-3 text-text-muted font-medium" style={{ width: "18%" }}>
                   Simulated
                 </th>
-                <th className="text-right px-4 py-3 text-text-muted font-medium">
+                <th className="text-right px-4 py-3 text-text-muted font-medium" style={{ width: "14%" }}>
                   Delta
                 </th>
-                <th className="text-center px-4 py-3 text-text-muted font-medium w-64">
+                <th className="text-center px-4 py-3 text-text-muted font-medium" style={{ width: "30%" }}>
                   Adjustment
                 </th>
               </tr>
