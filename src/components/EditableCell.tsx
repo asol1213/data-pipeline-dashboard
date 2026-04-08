@@ -11,6 +11,7 @@ interface EditableCellProps {
   onSave: (newValue: string) => void;
   onCancel: () => void;
   onNavigate: (direction: "up" | "down" | "left" | "right") => void;
+  highlight?: "match" | "current";
 }
 
 export default function EditableCell({
@@ -22,6 +23,7 @@ export default function EditableCell({
   onSave,
   onCancel,
   onNavigate,
+  highlight,
 }: EditableCellProps) {
   const [editValue, setEditValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -78,6 +80,12 @@ export default function EditableCell({
     );
   }
 
+  const highlightClass = highlight === "current"
+    ? "bg-yellow-400/40"
+    : highlight === "match"
+      ? "bg-yellow-300/20"
+      : "";
+
   return (
     <td
       onClick={onStartEdit}
@@ -85,7 +93,7 @@ export default function EditableCell({
         isSelected
           ? "outline outline-2 outline-accent bg-accent/5"
           : "hover:bg-bg-card-hover"
-      } ${isNumber ? "text-right font-mono text-text-secondary" : "text-text-primary"}`}
+      } ${isNumber ? "text-right font-mono text-text-secondary" : "text-text-primary"} ${highlightClass}`}
       style={{ minWidth: 80 }}
     >
       {value}

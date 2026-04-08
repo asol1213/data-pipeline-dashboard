@@ -1,5 +1,5 @@
 export interface JoinClause {
-  joinType: "INNER" | "LEFT";
+  joinType: "INNER" | "LEFT" | "RIGHT" | "FULL";
   joinTable: string;
   joinAlias: string;
   onLeft: string;
@@ -38,6 +38,7 @@ export interface ParsedSQL {
   groupBy: string[];
   selectAll: boolean;
   join: JoinClause | null;
+  joins: JoinClause[];
   having: HavingCondition[];
   caseWhens: CaseWhen[];
   columnAliases: ColumnAlias[];
@@ -482,25 +483,34 @@ export function parseSQL(sql: string): ParsedSQL {
     }
   }
 
-  // Detect JOIN clause
+  // Detect JOIN clauses (supports multiple JOINs)
   let join: JoinClause | null = null;
-  const joinMatch = normalized.match(/\b(LEFT\s+JOIN|INNER\s+JOIN|JOIN)\s+(\S+)(?:\s+(\S+))?\s+ON\s+(\S+)\s*=\s*(\S+)/i);
-  if (joinMatch) {
-    const joinTypeRaw = joinMatch[1].toUpperCase().trim();
-    const joinType: "INNER" | "LEFT" = joinTypeRaw.startsWith("LEFT") ? "LEFT" : "INNER";
-    const joinTable = joinMatch[2];
+  const joins: JoinClause[] = [];
+  const joinRegex = /\b(FULL\s+OUTER\s+JOIN|RIGHT\s+JOIN|LEFT\s+JOIN|INNER\s+JOIN|JOIN)\s+(\S+)(?:\s+(\S+))?\s+ON\s+(\S+)\s*=\s*(\S+)/gi;
+  let jm;
+  while ((jm = joinRegex.exec(normalized)) !== null) {
+    const joinTypeRaw = jm[1].toUpperCase().trim();
+    let joinType: "INNER" | "LEFT" | "RIGHT" | "FULL";
+    if (joinTypeRaw.startsWith("LEFT")) joinType = "LEFT";
+    else if (joinTypeRaw.startsWith("RIGHT")) joinType = "RIGHT";
+    else if (joinTypeRaw.startsWith("FULL")) joinType = "FULL";
+    else joinType = "INNER";
+    const joinTable = jm[2];
     let joinAlias = "";
-    if (joinMatch[3]) {
-      const possibleAlias = joinMatch[3];
+    if (jm[3]) {
+      const possibleAlias = jm[3];
       if (possibleAlias.toUpperCase() !== "ON") {
         joinAlias = possibleAlias;
       }
     }
-    const onLeft = joinMatch[4];
-    const onRight = joinMatch[5];
-    join = { joinType, joinTable, joinAlias, onLeft, onRight };
+    const onLeft = jm[4];
+    const onRight = jm[5];
+    joins.push({ joinType, joinTable, joinAlias, onLeft, onRight });
+  }
+  if (joins.length > 0) {
+    join = joins[0]; // backward compat: first join
   } else {
-    const joinWithoutOn = normalized.match(/\b(LEFT\s+JOIN|INNER\s+JOIN|JOIN)\s+(\S+)/i);
+    const joinWithoutOn = normalized.match(/\b(FULL\s+OUTER\s+JOIN|RIGHT\s+JOIN|LEFT\s+JOIN|INNER\s+JOIN|JOIN)\s+(\S+)/i);
     if (joinWithoutOn) {
       throw new SQLError("JOIN requires an ON clause");
     }
@@ -658,7 +668,7 @@ export function parseSQL(sql: string): ParsedSQL {
 
   return {
     table, tableAlias, columns, where, orderBy, limit, aggregates, groupBy,
-    selectAll, join, having, caseWhens, columnAliases, windowFunctions,
+    selectAll, join, joins, having, caseWhens, columnAliases, windowFunctions,
     union, subqueries,
   };
 }
@@ -873,7 +883,7 @@ function executeSingleQuery(
   }
 
   // If there is a JOIN, execute the join path
-  if (parsed.join) {
+  if (parsed.joins.length > 0) {
     return executeJoinQuery(parsed, datasets, startTime);
   }
 
@@ -960,14 +970,31 @@ function executeSingleQuery(
     return executeGroupBy(parsed, filteredRows, headers, columnTypes, startTime);
   }
 
-  // Apply ORDER BY
+  // Build alias-to-expression map for ORDER BY alias resolution
+  const aliasToExpr = new Map<string, string>();
+  for (const a of parsed.columnAliases) {
+    aliasToExpr.set(a.alias, a.expression);
+  }
+  for (const agg of parsed.aggregates) {
+    aliasToExpr.set(agg.alias, `__agg__${agg.func}(${agg.column})`);
+  }
+
+  // Apply ORDER BY (resolve aliases to actual column names)
   if (parsed.orderBy.length > 0) {
     filteredRows = [...filteredRows].sort((a, b) => {
       for (const ob of parsed.orderBy) {
-        const aVal = a[ob.column] ?? "";
-        const bVal = b[ob.column] ?? "";
+        // Resolve alias: if ob.column is an alias, use the original expression
+        let resolvedCol = ob.column;
+        if (aliasToExpr.has(ob.column)) {
+          const expr = aliasToExpr.get(ob.column)!;
+          if (!expr.startsWith("__agg__")) {
+            resolvedCol = expr;
+          }
+        }
+        const aVal = a[resolvedCol] ?? a[ob.column] ?? "";
+        const bVal = b[resolvedCol] ?? b[ob.column] ?? "";
         let cmp: number;
-        if (columnTypes[ob.column] === "number") {
+        if (columnTypes[resolvedCol] === "number" || columnTypes[ob.column] === "number") {
           cmp = Number(aVal) - Number(bVal);
         } else {
           cmp = aVal.localeCompare(bVal);
@@ -1068,34 +1095,22 @@ function executeSingleQuery(
   };
 }
 
-function executeJoinQuery(
-  parsed: ParsedSQL,
-  datasets: Map<string, { rows: Record<string, string>[]; headers: string[]; columnTypes: Record<string, string> }>,
-  startTime: number
-): QueryResult {
-  const join = parsed.join!;
-
-  const leftDataset = datasets.get(parsed.table);
-  if (!leftDataset) {
-    const available = Array.from(datasets.keys()).join(", ");
-    throw new SQLError(
-      `Table '${parsed.table}' not found. Available tables: ${available || "none"}`
-    );
-  }
-
-  const rightDataset = datasets.get(join.joinTable);
-  if (!rightDataset) {
-    const available = Array.from(datasets.keys()).join(", ");
-    throw new SQLError(
-      `Table '${join.joinTable}' not found. Available tables: ${available || "none"}`
-    );
-  }
-
-  const leftAlias = parsed.tableAlias || parsed.table;
-  const rightAlias = join.joinAlias || join.joinTable;
-
-  const onLeftResolved = resolveColumn(join.onLeft, leftAlias, rightAlias, leftDataset.headers, rightDataset.headers);
-  const onRightResolved = resolveColumn(join.onRight, leftAlias, rightAlias, leftDataset.headers, rightDataset.headers);
+/** Perform a single two-table join and return the merged rows, headers, and columnTypes */
+function performSingleJoin(
+  leftRows: Record<string, string>[],
+  leftHeaders: string[],
+  leftColumnTypes: Record<string, string>,
+  leftAlias: string,
+  rightDataset: { rows: Record<string, string>[]; headers: string[]; columnTypes: Record<string, string> },
+  rightAlias: string,
+  join: JoinClause,
+): {
+  rows: Record<string, string>[];
+  headers: string[];
+  columnTypes: Record<string, string>;
+} {
+  const onLeftResolved = resolveColumn(join.onLeft, leftAlias, rightAlias, leftHeaders, rightDataset.headers);
+  const onRightResolved = resolveColumn(join.onRight, leftAlias, rightAlias, leftHeaders, rightDataset.headers);
 
   let leftOnCol: string;
   let rightOnCol: string;
@@ -1107,28 +1122,40 @@ function executeJoinQuery(
     rightOnCol = onLeftResolved.bare;
   }
 
-  const mergedColumnTypes: Record<string, string> = { ...leftDataset.columnTypes, ...rightDataset.columnTypes };
-  for (const h of leftDataset.headers) {
-    mergedColumnTypes[`${leftAlias}.${h}`] = leftDataset.columnTypes[h];
+  const mergedColumnTypes: Record<string, string> = { ...leftColumnTypes, ...rightDataset.columnTypes };
+  for (const h of leftHeaders) {
+    if (!mergedColumnTypes[`${leftAlias}.${h}`]) {
+      mergedColumnTypes[`${leftAlias}.${h}`] = leftColumnTypes[h] || leftColumnTypes[`${leftAlias}.${h}`] || "string";
+    }
   }
   for (const h of rightDataset.headers) {
     mergedColumnTypes[`${rightAlias}.${h}`] = rightDataset.columnTypes[h];
   }
 
-  let joinedRows: Record<string, string>[] = [];
+  const joinedRows: Record<string, string>[] = [];
+  const rightMatched = new Set<number>();
 
-  for (const leftRow of leftDataset.rows) {
+  for (const leftRow of leftRows) {
     let matched = false;
-    for (const rightRow of rightDataset.rows) {
-      if (leftRow[leftOnCol] === rightRow[rightOnCol]) {
+    // Resolve left key: try aliased name, then bare name
+    const leftKeyVal = leftRow[`${leftAlias}.${leftOnCol}`] ?? leftRow[leftOnCol] ?? "";
+    for (let ri = 0; ri < rightDataset.rows.length; ri++) {
+      const rightRow = rightDataset.rows[ri];
+      if (leftKeyVal === (rightRow[rightOnCol] ?? "")) {
         matched = true;
+        rightMatched.add(ri);
         const merged: Record<string, string> = {};
-        for (const h of leftDataset.headers) {
-          merged[h] = leftRow[h] ?? "";
-          merged[`${leftAlias}.${h}`] = leftRow[h] ?? "";
+        // Copy all existing left columns (including previous alias prefixes)
+        for (const key of Object.keys(leftRow)) {
+          merged[key] = leftRow[key] ?? "";
+        }
+        for (const h of leftHeaders) {
+          if (!merged[`${leftAlias}.${h}`]) {
+            merged[`${leftAlias}.${h}`] = leftRow[h] ?? leftRow[`${leftAlias}.${h}`] ?? "";
+          }
         }
         for (const h of rightDataset.headers) {
-          if (!leftDataset.headers.includes(h)) {
+          if (!leftHeaders.includes(h)) {
             merged[h] = rightRow[h] ?? "";
           }
           merged[`${rightAlias}.${h}`] = rightRow[h] ?? "";
@@ -1136,14 +1163,18 @@ function executeJoinQuery(
         joinedRows.push(merged);
       }
     }
-    if (!matched && join.joinType === "LEFT") {
+    if (!matched && (join.joinType === "LEFT" || join.joinType === "FULL")) {
       const merged: Record<string, string> = {};
-      for (const h of leftDataset.headers) {
-        merged[h] = leftRow[h] ?? "";
-        merged[`${leftAlias}.${h}`] = leftRow[h] ?? "";
+      for (const key of Object.keys(leftRow)) {
+        merged[key] = leftRow[key] ?? "";
+      }
+      for (const h of leftHeaders) {
+        if (!merged[`${leftAlias}.${h}`]) {
+          merged[`${leftAlias}.${h}`] = leftRow[h] ?? leftRow[`${leftAlias}.${h}`] ?? "";
+        }
       }
       for (const h of rightDataset.headers) {
-        if (!leftDataset.headers.includes(h)) {
+        if (!leftHeaders.includes(h)) {
           merged[h] = "";
         }
         merged[`${rightAlias}.${h}`] = "";
@@ -1152,15 +1183,87 @@ function executeJoinQuery(
     }
   }
 
+  // RIGHT JOIN or FULL OUTER JOIN: add unmatched right rows
+  if (join.joinType === "RIGHT" || join.joinType === "FULL") {
+    for (let ri = 0; ri < rightDataset.rows.length; ri++) {
+      if (!rightMatched.has(ri)) {
+        const rightRow = rightDataset.rows[ri];
+        const merged: Record<string, string> = {};
+        // Left side columns are empty
+        for (const h of leftHeaders) {
+          merged[h] = "";
+          merged[`${leftAlias}.${h}`] = "";
+        }
+        for (const h of rightDataset.headers) {
+          if (!leftHeaders.includes(h)) {
+            merged[h] = rightRow[h] ?? "";
+          }
+          merged[`${rightAlias}.${h}`] = rightRow[h] ?? "";
+        }
+        joinedRows.push(merged);
+      }
+    }
+  }
+
   const allHeaders: string[] = [];
-  for (const h of leftDataset.headers) {
+  for (const h of leftHeaders) {
     allHeaders.push(h);
   }
   for (const h of rightDataset.headers) {
-    if (!leftDataset.headers.includes(h)) {
+    if (!leftHeaders.includes(h)) {
       allHeaders.push(h);
     }
   }
+
+  return { rows: joinedRows, headers: allHeaders, columnTypes: mergedColumnTypes };
+}
+
+function executeJoinQuery(
+  parsed: ParsedSQL,
+  datasets: Map<string, { rows: Record<string, string>[]; headers: string[]; columnTypes: Record<string, string> }>,
+  startTime: number
+): QueryResult {
+  const allJoins = parsed.joins;
+
+  const leftDataset = datasets.get(parsed.table);
+  if (!leftDataset) {
+    const available = Array.from(datasets.keys()).join(", ");
+    throw new SQLError(
+      `Table '${parsed.table}' not found. Available tables: ${available || "none"}`
+    );
+  }
+
+  // Start with the left dataset
+  let currentRows = leftDataset.rows;
+  let currentHeaders = leftDataset.headers;
+  let currentColumnTypes = leftDataset.columnTypes;
+  let currentAlias = parsed.tableAlias || parsed.table;
+
+  // Sequentially join each table
+  for (const join of allJoins) {
+    const rightDataset = datasets.get(join.joinTable);
+    if (!rightDataset) {
+      const available = Array.from(datasets.keys()).join(", ");
+      throw new SQLError(
+        `Table '${join.joinTable}' not found. Available tables: ${available || "none"}`
+      );
+    }
+
+    const rightAlias = join.joinAlias || join.joinTable;
+    const result = performSingleJoin(
+      currentRows, currentHeaders, currentColumnTypes, currentAlias,
+      rightDataset, rightAlias, join,
+    );
+    currentRows = result.rows;
+    currentHeaders = result.headers;
+    currentColumnTypes = result.columnTypes;
+    // After first join, the "left alias" concept changes since we're now working with merged rows
+    // Keep the original leftAlias for column resolution
+  }
+
+  const mergedColumnTypes = currentColumnTypes;
+  let joinedRows = currentRows;
+  const allHeaders = currentHeaders;
 
   // Apply WHERE filters
   joinedRows = joinedRows.filter((row) => {
@@ -1245,10 +1348,19 @@ function executeJoinQuery(
     };
   }
 
+  // Add CASE WHEN columns
+  for (const cw of parsed.caseWhens) {
+    if (!resultColumns.includes(cw.alias)) resultColumns.push(cw.alias);
+  }
+
   const resultRows = joinedRows.map((row) => {
     const result: Record<string, string | number> = {};
     for (const col of resultColumns) {
       result[col] = row[col] ?? "";
+    }
+    // Evaluate CASE WHEN
+    for (const cw of parsed.caseWhens) {
+      result[cw.alias] = evaluateCaseWhen(cw, row, mergedColumnTypes);
     }
     return result;
   });
@@ -1381,15 +1493,28 @@ function executeGroupBy(
     });
   }
 
-  // Apply ORDER BY to grouped results
+  // Apply ORDER BY to grouped results (resolve aliases)
   if (parsed.orderBy.length > 0) {
+    // Build alias map for resolution
+    const grpAliasMap = new Map<string, string>();
+    for (const a of parsed.columnAliases) {
+      grpAliasMap.set(a.alias, a.expression);
+    }
+    for (const agg of parsed.aggregates) {
+      grpAliasMap.set(agg.alias, agg.alias); // aggregate aliases resolve to themselves
+    }
     filteredResults.sort((a, b) => {
       for (const ob of parsed.orderBy) {
-        const aVal = a[ob.column] ?? "";
-        const bVal = b[ob.column] ?? "";
+        // Check if ob.column is an alias for an aggregate or column
+        let resolvedCol = ob.column;
+        // Try direct match first on result keys
+        const aVal = a[ob.column] ?? a[resolvedCol] ?? "";
+        const bVal = b[ob.column] ?? b[resolvedCol] ?? "";
         let cmp: number;
-        const isNumericCol = columnTypes[ob.column] === "number" || parsed.aggregates.some((ag) => ag.alias === ob.column);
-        if (isNumericCol) {
+        const isNumericCol = columnTypes[ob.column] === "number" ||
+          parsed.aggregates.some((ag) => ag.alias === ob.column) ||
+          grpAliasMap.has(ob.column);
+        if (isNumericCol || (!isNaN(Number(aVal)) && !isNaN(Number(bVal)) && String(aVal) !== "" && String(bVal) !== "")) {
           cmp = Number(aVal) - Number(bVal);
         } else {
           cmp = String(aVal).localeCompare(String(bVal));

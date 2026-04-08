@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import EditableCell from "./EditableCell";
+import { evaluateCellFormula } from "@/lib/cell-formulas";
 
 export interface HistoryEntry {
   action: "edit" | "addRow" | "deleteRow" | "addColumn";
@@ -61,6 +62,49 @@ export default function SpreadsheetTable({
     rowIndex: number;
   } | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+
+  // Find & Replace state
+  const [showFindBar, setShowFindBar] = useState(false);
+  const [showReplace, setShowReplace] = useState(false);
+  const [findTerm, setFindTerm] = useState("");
+  const [replaceTerm, setReplaceTerm] = useState("");
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const findInputRef = useRef<HTMLInputElement>(null);
+
+  // Compute matches for find
+  const findMatches = useMemo(() => {
+    if (!findTerm) return [];
+    const matches: { row: number; col: string }[] = [];
+    const term = findTerm.toLowerCase();
+    for (let ri = 0; ri < data.length; ri++) {
+      for (const h of headers) {
+        const val = data[ri]?.[h] ?? "";
+        if (val.toLowerCase().includes(term)) {
+          matches.push({ row: ri, col: h });
+        }
+      }
+    }
+    return matches;
+  }, [findTerm, data, headers]);
+
+  // Build 2D data array for formula evaluation
+  const dataGrid = useMemo(() => {
+    return data.map(row => headers.map(h => row[h] ?? ""));
+  }, [data, headers]);
+
+  // Evaluate a cell value - if it starts with "=", compute the formula
+  const getCellDisplayValue = useCallback((rowIndex: number, col: string): string => {
+    const raw = data[rowIndex]?.[col] ?? "";
+    if (raw.startsWith("=")) {
+      try {
+        const result = evaluateCellFormula(raw.substring(1), dataGrid, headers);
+        return String(result);
+      } catch {
+        return "#ERROR";
+      }
+    }
+    return raw;
+  }, [data, dataGrid, headers]);
 
   // Compute sorted indices
   const sortedIndices = (() => {
@@ -222,6 +266,31 @@ export default function SpreadsheetTable({
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Find & Replace shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        e.preventDefault();
+        setShowFindBar(true);
+        setShowReplace(false);
+        setTimeout(() => findInputRef.current?.focus(), 50);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "h") {
+        e.preventDefault();
+        setShowFindBar(true);
+        setShowReplace(true);
+        setTimeout(() => findInputRef.current?.focus(), 50);
+        return;
+      }
+      if (e.key === "Escape" && showFindBar) {
+        e.preventDefault();
+        setShowFindBar(false);
+        setShowReplace(false);
+        setFindTerm("");
+        setReplaceTerm("");
+        setCurrentMatchIndex(0);
+        return;
+      }
+
       // Undo/Redo
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
@@ -336,6 +405,7 @@ export default function SpreadsheetTable({
     data,
     onCellEdit,
     onBulkEdit,
+    showFindBar,
   ]);
 
   // Close context menu on click outside
@@ -365,6 +435,63 @@ export default function SpreadsheetTable({
   const canUndo = historyIndex >= 0;
   const canRedo = historyIndex < history.length - 1;
 
+  // Find & Replace handlers
+  const handleFindNext = useCallback(() => {
+    if (findMatches.length === 0) return;
+    const nextIndex = (currentMatchIndex + 1) % findMatches.length;
+    setCurrentMatchIndex(nextIndex);
+    const match = findMatches[nextIndex];
+    setSelectedCell({ row: match.row, col: match.col });
+    setSelectionEnd(null);
+  }, [findMatches, currentMatchIndex]);
+
+  const handleFindPrev = useCallback(() => {
+    if (findMatches.length === 0) return;
+    const prevIndex = (currentMatchIndex - 1 + findMatches.length) % findMatches.length;
+    setCurrentMatchIndex(prevIndex);
+    const match = findMatches[prevIndex];
+    setSelectedCell({ row: match.row, col: match.col });
+    setSelectionEnd(null);
+  }, [findMatches, currentMatchIndex]);
+
+  const handleReplace = useCallback(() => {
+    if (findMatches.length === 0) return;
+    const match = findMatches[currentMatchIndex];
+    if (!match) return;
+    const oldVal = data[match.row]?.[match.col] ?? "";
+    const newVal = oldVal.replace(new RegExp(findTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), replaceTerm);
+    onCellEdit(match.row, match.col, newVal);
+  }, [findMatches, currentMatchIndex, data, findTerm, replaceTerm, onCellEdit]);
+
+  const handleReplaceAll = useCallback(() => {
+    if (findMatches.length === 0) return;
+    const regex = new RegExp(findTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+    const edits: { row: number; col: string; value: string }[] = [];
+    for (const match of findMatches) {
+      const oldVal = data[match.row]?.[match.col] ?? "";
+      const newVal = oldVal.replace(regex, replaceTerm);
+      edits.push({ row: match.row, col: match.col, value: newVal });
+    }
+    if (edits.length > 0 && onBulkEdit) {
+      onBulkEdit(edits);
+    } else {
+      for (const edit of edits) {
+        onCellEdit(edit.row, edit.col, edit.value);
+      }
+    }
+  }, [findMatches, data, findTerm, replaceTerm, onCellEdit, onBulkEdit]);
+
+  const isFindMatch = useCallback((rowIndex: number, col: string): boolean => {
+    if (!findTerm || findMatches.length === 0) return false;
+    return findMatches.some(m => m.row === rowIndex && m.col === col);
+  }, [findTerm, findMatches]);
+
+  const isCurrentFindMatch = useCallback((rowIndex: number, col: string): boolean => {
+    if (!findTerm || findMatches.length === 0) return false;
+    const current = findMatches[currentMatchIndex];
+    return current?.row === rowIndex && current?.col === col;
+  }, [findTerm, findMatches, currentMatchIndex]);
+
   return (
     <div className="flex flex-col h-full" ref={tableRef}>
       {/* Toolbar */}
@@ -387,6 +514,108 @@ export default function SpreadsheetTable({
           col{headers.length !== 1 ? "s" : ""}
         </span>
       </div>
+
+      {/* Find & Replace Bar */}
+      {showFindBar && (
+        <div className="flex items-center gap-2 p-2 border-b border-border-subtle bg-bg-secondary/80 flex-wrap">
+          <div className="flex items-center gap-2">
+            <input
+              ref={findInputRef}
+              type="text"
+              value={findTerm}
+              onChange={(e) => { setFindTerm(e.target.value); setCurrentMatchIndex(0); }}
+              placeholder="Find..."
+              className="bg-bg-input border border-border-subtle rounded px-2 py-1 text-sm text-text-primary focus:outline-none focus:border-accent w-48"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleFindNext();
+                }
+                if (e.key === "Escape") {
+                  setShowFindBar(false);
+                  setShowReplace(false);
+                  setFindTerm("");
+                  setReplaceTerm("");
+                  setCurrentMatchIndex(0);
+                }
+              }}
+            />
+            <button
+              onClick={handleFindPrev}
+              disabled={findMatches.length === 0}
+              className="px-2 py-1 text-xs rounded bg-bg-secondary border border-border-subtle text-text-secondary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={handleFindNext}
+              disabled={findMatches.length === 0}
+              className="px-2 py-1 text-xs rounded bg-bg-secondary border border-border-subtle text-text-secondary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+            <span className="text-xs text-text-muted">
+              {findMatches.length > 0
+                ? `${currentMatchIndex + 1} of ${findMatches.length} matches`
+                : findTerm ? "0 matches" : ""}
+            </span>
+          </div>
+          {showReplace && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={replaceTerm}
+                onChange={(e) => setReplaceTerm(e.target.value)}
+                placeholder="Replace with..."
+                className="bg-bg-input border border-border-subtle rounded px-2 py-1 text-sm text-text-primary focus:outline-none focus:border-accent w-48"
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setShowFindBar(false);
+                    setShowReplace(false);
+                    setFindTerm("");
+                    setReplaceTerm("");
+                    setCurrentMatchIndex(0);
+                  }
+                }}
+              />
+              <button
+                onClick={handleReplace}
+                disabled={findMatches.length === 0}
+                className="px-2 py-1 text-xs rounded bg-accent/10 text-accent hover:bg-accent/20 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Replace
+              </button>
+              <button
+                onClick={handleReplaceAll}
+                disabled={findMatches.length === 0}
+                className="px-2 py-1 text-xs rounded bg-accent/10 text-accent hover:bg-accent/20 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Replace All
+              </button>
+            </div>
+          )}
+          {!showReplace && (
+            <button
+              onClick={() => setShowReplace(true)}
+              className="px-2 py-1 text-xs rounded bg-bg-secondary border border-border-subtle text-text-secondary hover:text-text-primary"
+            >
+              Replace...
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setShowFindBar(false);
+              setShowReplace(false);
+              setFindTerm("");
+              setReplaceTerm("");
+              setCurrentMatchIndex(0);
+            }}
+            className="px-2 py-1 text-xs text-text-muted hover:text-text-primary"
+          >
+            ESC
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-auto flex-1">
@@ -437,12 +666,16 @@ export default function SpreadsheetTable({
                   const isEditing =
                     editingCell?.row === rowIndex && editingCell?.col === h;
                   const isSelected = isCellInSelection(rowIndex, h);
+                  const rawValue = data[rowIndex]?.[h] ?? "";
+                  const displayValue = isEditing ? rawValue : getCellDisplayValue(rowIndex, h);
+                  const matchHighlight = isFindMatch(rowIndex, h);
+                  const currentMatch = isCurrentFindMatch(rowIndex, h);
                   return (
                     <EditableCell
                       key={`${rowIndex}-${h}`}
-                      value={data[rowIndex]?.[h] ?? ""}
+                      value={isEditing ? rawValue : displayValue}
                       isEditing={isEditing}
-                      isSelected={isSelected}
+                      isSelected={isSelected || currentMatch}
                       columnType={columnTypes[h] || "string"}
                       onStartEdit={() => {
                         setSelectedCell({ row: rowIndex, col: h });
@@ -452,6 +685,7 @@ export default function SpreadsheetTable({
                       onSave={(val) => handleCellSave(rowIndex, h, val)}
                       onCancel={() => setEditingCell(null)}
                       onNavigate={handleNavigate}
+                      highlight={matchHighlight ? (currentMatch ? "current" : "match") : undefined}
                     />
                   );
                 })}
