@@ -199,10 +199,10 @@ export default function GuidedTour() {
         </svg>
       </div>
 
-      {/* Tooltip */}
+      {/* Tooltip — fixed at bottom center so buttons are always visible */}
       <div
-        className="absolute z-[210] w-80 bg-bg-card border border-border-subtle rounded-xl shadow-2xl p-5 transition-all duration-300 pointer-events-auto"
-        style={{ top: tooltipTop, left: tooltipLeft }}
+        className="fixed z-[210] w-96 bg-bg-card border border-border-subtle rounded-xl shadow-2xl p-5 transition-all duration-300 pointer-events-auto"
+        style={{ bottom: 32, left: "50%", transform: "translateX(-50%)" }}
       >
         {/* Step indicator */}
         <div className="flex items-center gap-1.5 mb-3">
