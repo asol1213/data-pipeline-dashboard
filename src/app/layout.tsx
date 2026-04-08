@@ -173,6 +173,18 @@ export default function RootLayout({
                   Profiling
                 </Link>
                 <Link
+                  href="/alerts"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Alerts
+                </Link>
+                <Link
+                  href="/lineage"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Lineage
+                </Link>
+                <Link
                   href="/audit"
                   className="text-sm text-text-secondary hover:text-text-primary transition-colors"
                 >
@@ -183,6 +195,24 @@ export default function RootLayout({
                   className="text-sm text-text-secondary hover:text-text-primary transition-colors"
                 >
                   AI Chat
+                </Link>
+                <Link
+                  href="/benchmarks"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Benchmarks
+                </Link>
+                <Link
+                  href="/templates"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Templates
+                </Link>
+                <Link
+                  href="/reports"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Reports
                 </Link>
                 <Link
                   href="/demo"

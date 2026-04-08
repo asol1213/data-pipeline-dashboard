@@ -6,6 +6,8 @@ import {
   Bar,
   LineChart,
   Line,
+  AreaChart,
+  Area,
   PieChart,
   Pie,
   Cell,
@@ -23,9 +25,11 @@ interface NL2SQLResult {
   rows: Record<string, string | number>[];
   rowCount: number;
   executionTime: number;
-  chartType: "bar" | "line" | "pie" | "kpi" | "none";
+  chartType: "bar" | "line" | "pie" | "area" | "kpi" | "none";
   labelColumn: string;
   valueColumns: string[];
+  chartHint?: string | null;
+  isChartFirst?: boolean;
 }
 
 interface DatasetMeta {
@@ -73,6 +77,7 @@ export default function AskPage() {
   const [editedSQL, setEditedSQL] = useState("");
   const [datasets, setDatasets] = useState<DatasetMeta[]>([]);
   const [overrideChartType, setOverrideChartType] = useState<string | null>(null);
+  const [addedToDashboard, setAddedToDashboard] = useState(false);
 
   useEffect(() => {
     fetch("/api/datasets")
@@ -371,9 +376,9 @@ export default function AskPage() {
 
           {/* Chart type selector */}
           {result.labelColumn && result.valueColumns.length > 0 && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-text-muted">Chart type:</span>
-              {(["bar", "line", "pie"] as const).map((ct) => (
+              {(["bar", "line", "area", "pie"] as const).map((ct) => (
                 <button
                   key={ct}
                   onClick={() => setOverrideChartType(ct)}
@@ -396,6 +401,31 @@ export default function AskPage() {
               >
                 Table Only
               </button>
+              <button
+                onClick={() => {
+                  try {
+                    const existing = JSON.parse(localStorage.getItem("dashboard-ask-charts") || "[]");
+                    existing.push({
+                      sql: result.sql,
+                      chartType: chartType,
+                      labelColumn: result.labelColumn,
+                      valueColumns: result.valueColumns,
+                      savedAt: new Date().toISOString(),
+                    });
+                    localStorage.setItem("dashboard-ask-charts", JSON.stringify(existing));
+                    setAddedToDashboard(true);
+                    setTimeout(() => setAddedToDashboard(false), 2000);
+                  } catch { /* ignore */ }
+                }}
+                className="px-3 py-1 rounded-lg text-xs font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+              >
+                {addedToDashboard ? "Added!" : "Add to Dashboard"}
+              </button>
+              {result.isChartFirst && (
+                <span className="text-[10px] bg-accent/10 text-accent px-2 py-0.5 rounded-full font-medium">
+                  Chart-first mode
+                </span>
+              )}
             </div>
           )}
 
@@ -459,6 +489,40 @@ export default function AskPage() {
                         />
                       ))}
                     </LineChart>
+                  ) : chartType === "area" ? (
+                    <AreaChart data={chartData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border-subtle)"
+                      />
+                      <XAxis
+                        dataKey={result.labelColumn}
+                        tick={{ fill: "var(--text-muted)", fontSize: 12 }}
+                      />
+                      <YAxis
+                        tick={{ fill: "var(--text-muted)", fontSize: 12 }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--bg-card)",
+                          border: "1px solid var(--border-subtle)",
+                          borderRadius: "8px",
+                          color: "var(--text-primary)",
+                        }}
+                      />
+                      <Legend />
+                      {result.valueColumns.map((vc, i) => (
+                        <Area
+                          key={vc}
+                          type="monotone"
+                          dataKey={vc}
+                          stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                          fill={CHART_COLORS[i % CHART_COLORS.length]}
+                          fillOpacity={0.2}
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </AreaChart>
                   ) : chartType === "pie" ? (
                     <PieChart>
                       <Pie

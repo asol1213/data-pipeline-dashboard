@@ -11,6 +11,7 @@ import CsvDownloadButton from "./CsvDownloadButton";
 import PdfReportButton from "./PdfReportButton";
 import ExcelExportButton from "./ExcelExportButton";
 import CalculatedColumns from "./CalculatedColumns";
+import CommentButton from "./CommentButton";
 
 export const dynamic = "force-dynamic";
 
@@ -119,6 +120,7 @@ export default async function DatasetDetailPage({
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <CommentButton datasetId={id} />
             <span className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${getQualityBgColor(quality.qualityScore)}`}>
               Quality: {quality.qualityScore}/100 ({getQualityLabel(quality.qualityScore)})
             </span>

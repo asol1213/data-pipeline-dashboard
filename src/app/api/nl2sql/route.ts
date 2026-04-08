@@ -141,7 +141,8 @@ Rules:
 - Use GROUP BY for aggregations
 - Use ORDER BY DESC for "top/highest/best" questions
 - Use ORDER BY ASC for "bottom/lowest/worst" questions
-- Column names with special characters like % must be used as-is (e.g. Discount_%)`;
+- Column names with special characters like % must be used as-is (e.g. Discount_%)
+- If the user asks for a specific chart type (line, bar, pie, area), include a comment at the end of the SQL: -- CHART:line or -- CHART:bar or -- CHART:pie or -- CHART:area`;
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [
@@ -160,6 +161,27 @@ Rules:
 
     if (!sql) {
       return Response.json({ error: "AI did not return a SQL query" }, { status: 500 });
+    }
+
+    // Parse chart type hint from SQL comment (e.g., -- CHART:line)
+    let chartHint: string | null = null;
+    const chartHintMatch = sql.match(/--\s*CHART:\s*(line|bar|pie|area)\s*$/i);
+    if (chartHintMatch) {
+      chartHint = chartHintMatch[1].toLowerCase();
+      // Remove the comment from SQL before execution
+      sql = sql.replace(/--\s*CHART:\s*(line|bar|pie|area)\s*$/i, "").trim();
+    }
+
+    // Also detect chart-first keywords from the original question
+    const chartFirstKeywords = /\b(chart|graph|visualize|show\s+me|plot|pie\s+chart|bar\s+chart|line\s+chart|area\s+chart)\b/i;
+    const isChartFirst = chartFirstKeywords.test(question);
+
+    // Detect specific chart type from question
+    if (!chartHint) {
+      if (/\bline\s+(chart|graph)\b/i.test(question)) chartHint = "line";
+      else if (/\bpie\s+(chart|graph)\b/i.test(question)) chartHint = "pie";
+      else if (/\bbar\s+(chart|graph)\b/i.test(question) || /\bas\s+bars\b/i.test(question)) chartHint = "bar";
+      else if (/\barea\s+(chart|graph)\b/i.test(question)) chartHint = "area";
     }
 
     // Execute the SQL
@@ -190,10 +212,15 @@ Rules:
     const parsed = parseSQL(sql);
     const result = executeQuery(parsed, datasetsMap);
 
-    const { chartType, labelColumn, valueColumns } = detectChartType(
+    const detected = detectChartType(
       result.columns,
       result.rows
     );
+
+    // Override chart type if hint was provided
+    const finalChartType = chartHint
+      ? (chartHint as "bar" | "line" | "pie" | "kpi" | "none")
+      : detected.chartType;
 
     return Response.json({
       sql,
@@ -201,9 +228,11 @@ Rules:
       rows: result.rows,
       rowCount: result.rowCount,
       executionTime: result.executionTime,
-      chartType,
-      labelColumn,
-      valueColumns,
+      chartType: finalChartType,
+      labelColumn: detected.labelColumn,
+      valueColumns: detected.valueColumns,
+      chartHint,
+      isChartFirst,
     });
   } catch (err) {
     if (err instanceof SQLError) {
