@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import RecentActivity from "@/components/RecentActivity";
 
 interface DemoCard {
   id: string;
@@ -117,7 +118,7 @@ export default function HeroPage() {
       )}
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden" data-tour="hero">
         <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-[#8b5cf6]/5" />
         <div className="absolute inset-0">
           <div className="absolute top-20 left-1/4 w-64 h-64 bg-accent/10 rounded-full blur-3xl" />
@@ -187,7 +188,7 @@ export default function HeroPage() {
       </section>
 
       {/* Enterprise Demo Section */}
-      <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-12">
+      <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-12" data-tour="demos">
         <div className="text-center mb-8">
           <h2 className="text-xl font-bold text-text-primary mb-2">
             Try with Enterprise Data

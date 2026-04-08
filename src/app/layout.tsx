@@ -3,6 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "./theme-provider";
 import Navigation from "@/components/Navigation";
 import AIChatWidget from "../components/AIChatWidget";
+import CommandPalette from "@/components/CommandPalette";
+import GuidedTour from "@/components/GuidedTour";
+import PageBreadcrumb from "@/components/PageBreadcrumb";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -42,7 +45,10 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
         <Navigation />
+        <PageBreadcrumb />
         <main className="flex-1">{children}</main>
+        <CommandPalette />
+        <GuidedTour />
         <footer className="border-t border-border-subtle py-6 mt-12">
           <div className="mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-text-muted">
             Built by Andrew Arbo &middot; DataPipe

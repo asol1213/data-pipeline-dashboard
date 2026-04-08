@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/app/ThemeToggle";
+import ThemeCustomizer from "@/components/ThemeCustomizer";
+import ScreenshotButton from "@/components/ScreenshotButton";
 
 interface NavGroup {
   label: string;
@@ -208,13 +209,17 @@ export default function Navigation() {
             </Link>
 
             <div className="ml-2">
-              <ThemeToggle />
+              <ScreenshotButton />
+            </div>
+            <div className="ml-1">
+              <ThemeCustomizer />
             </div>
           </div>
 
           {/* Mobile: hamburger + theme toggle */}
           <div className="flex lg:hidden items-center gap-2">
-            <ThemeToggle />
+            <ScreenshotButton />
+            <ThemeCustomizer />
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="w-9 h-9 rounded-lg bg-bg-card border border-border-subtle flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors"
