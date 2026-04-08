@@ -242,7 +242,44 @@ export default function ModelPage() {
     });
   }, [expandedTables, data]);
 
-  /* ── drag handlers ── */
+  /* ── canvas pan (drag empty space to scroll) ── */
+  const [panning, setPanning] = useState(false);
+  const panStart = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
+
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only pan if clicking on canvas background (not on a table card)
+    const target = e.target as HTMLElement;
+    if (target === canvasRef.current || target.tagName === "svg" || target.closest("[data-canvas-bg]")) {
+      e.preventDefault();
+      setPanning(true);
+      panStart.current = {
+        x: e.clientX,
+        y: e.clientY,
+        scrollLeft: canvasRef.current?.scrollLeft ?? 0,
+        scrollTop: canvasRef.current?.scrollTop ?? 0,
+      };
+      if (canvasRef.current) canvasRef.current.style.cursor = "grabbing";
+    }
+  }, []);
+
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
+    if (panning && panStart.current && canvasRef.current) {
+      const dx = e.clientX - panStart.current.x;
+      const dy = e.clientY - panStart.current.y;
+      canvasRef.current.scrollLeft = panStart.current.scrollLeft - dx;
+      canvasRef.current.scrollTop = panStart.current.scrollTop - dy;
+    }
+  }, [panning]);
+
+  const handleCanvasMouseUp = useCallback(() => {
+    if (panning) {
+      setPanning(false);
+      panStart.current = null;
+      if (canvasRef.current) canvasRef.current.style.cursor = "grab";
+    }
+  }, [panning]);
+
+  /* ── drag handlers (table cards) ── */
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, tableId: string) => {
       e.preventDefault();
@@ -455,10 +492,12 @@ export default function ModelPage() {
       <div
         ref={canvasRef}
         className="relative bg-bg-card rounded-xl border border-border-subtle overflow-auto"
-        style={{ height: 700 }}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        style={{ height: 700, cursor: panning ? "grabbing" : "grab" }}
+        data-canvas-bg
+        onMouseDown={handleCanvasMouseDown}
+        onMouseMove={(e) => { handleCanvasMouseMove(e); handleMouseMove(e); }}
+        onMouseUp={() => { handleCanvasMouseUp(); handleMouseUp(); }}
+        onMouseLeave={() => { handleCanvasMouseUp(); handleMouseUp(); }}
         onWheel={(e) => {
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
