@@ -302,3 +302,284 @@ export function goalSeek(
     iterations,
   };
 }
+
+// ── P&L Simulator ───────────────────────────────────────────────
+
+export interface PnLLineItem {
+  id: string;
+  label: string;
+  baseValue: number;
+  adjustmentPct: number; // -0.5 to 1.0
+  simulatedValue: number;
+  editable: boolean;
+  isPercent: boolean;
+  formula?: string;
+  indent?: number;
+}
+
+export interface PnLSimulatorState {
+  items: PnLLineItem[];
+}
+
+const DEFAULT_BASE_VALUES = {
+  revenue: 12000000,
+  cogs: 5100000,      // ~42.5% of revenue
+  marketing: 600000,
+  rnd: 900000,
+  ga: 450000,
+  salaries: 1800000,
+  depreciation: 300000,
+  interest: 120000,
+};
+
+export function createDefaultPnLState(): PnLSimulatorState {
+  return recalcPnL(buildPnLItems(DEFAULT_BASE_VALUES));
+}
+
+export function buildPnLItems(base: typeof DEFAULT_BASE_VALUES): PnLSimulatorState {
+  const items: PnLLineItem[] = [
+    { id: "revenue", label: "Revenue", baseValue: base.revenue, adjustmentPct: 0, simulatedValue: base.revenue, editable: true, isPercent: false, formula: "Root driver" },
+    { id: "cogs", label: "COGS", baseValue: base.cogs, adjustmentPct: 0, simulatedValue: base.cogs, editable: false, isPercent: false, formula: "~42.5% of Revenue", indent: 1 },
+    { id: "grossProfit", label: "Gross Profit", baseValue: 0, adjustmentPct: 0, simulatedValue: 0, editable: false, isPercent: false, formula: "Revenue - COGS" },
+    { id: "grossMargin", label: "Gross Margin %", baseValue: 0, adjustmentPct: 0, simulatedValue: 0, editable: false, isPercent: true, formula: "Gross Profit / Revenue" },
+    { id: "marketing", label: "Marketing", baseValue: base.marketing, adjustmentPct: 0, simulatedValue: base.marketing, editable: true, isPercent: false, indent: 1 },
+    { id: "rnd", label: "R&D", baseValue: base.rnd, adjustmentPct: 0, simulatedValue: base.rnd, editable: true, isPercent: false, indent: 1 },
+    { id: "ga", label: "G&A", baseValue: base.ga, adjustmentPct: 0, simulatedValue: base.ga, editable: true, isPercent: false, indent: 1 },
+    { id: "salaries", label: "Salaries", baseValue: base.salaries, adjustmentPct: 0, simulatedValue: base.salaries, editable: true, isPercent: false, formula: "Scales with Headcount", indent: 1 },
+    { id: "ebitda", label: "EBITDA", baseValue: 0, adjustmentPct: 0, simulatedValue: 0, editable: false, isPercent: false, formula: "Gross Profit - all OpEx" },
+    { id: "ebitdaMargin", label: "EBITDA Margin %", baseValue: 0, adjustmentPct: 0, simulatedValue: 0, editable: false, isPercent: true, formula: "EBITDA / Revenue" },
+    { id: "depreciation", label: "Depreciation", baseValue: base.depreciation, adjustmentPct: 0, simulatedValue: base.depreciation, editable: false, isPercent: false, formula: "Fixed", indent: 1 },
+    { id: "ebit", label: "EBIT", baseValue: 0, adjustmentPct: 0, simulatedValue: 0, editable: false, isPercent: false, formula: "EBITDA - Depreciation" },
+    { id: "interest", label: "Interest", baseValue: base.interest, adjustmentPct: 0, simulatedValue: base.interest, editable: false, isPercent: false, formula: "Fixed", indent: 1 },
+    { id: "tax", label: "Tax (25%)", baseValue: 0, adjustmentPct: 0, simulatedValue: 0, editable: false, isPercent: false, formula: "25% of pre-tax income" },
+    { id: "netIncome", label: "Net Income", baseValue: 0, adjustmentPct: 0, simulatedValue: 0, editable: false, isPercent: false, formula: "EBIT - Interest - Tax" },
+    { id: "netMargin", label: "Net Margin %", baseValue: 0, adjustmentPct: 0, simulatedValue: 0, editable: false, isPercent: true, formula: "Net Income / Revenue" },
+  ];
+  return { items };
+}
+
+export function recalcPnL(state: PnLSimulatorState): PnLSimulatorState {
+  const map = new Map<string, PnLLineItem>();
+  for (const item of state.items) {
+    map.set(item.id, { ...item });
+  }
+
+  const get = (id: string) => map.get(id)!;
+
+  // Apply adjustments to editable items
+  const revenue = get("revenue");
+  revenue.simulatedValue = Math.round(revenue.baseValue * (1 + revenue.adjustmentPct));
+
+  // COGS scales with revenue (~42.5%)
+  const cogs = get("cogs");
+  const cogsRatio = cogs.baseValue / get("revenue").baseValue; // preserve original ratio
+  cogs.simulatedValue = Math.round(revenue.simulatedValue * cogsRatio);
+
+  // Gross Profit
+  const gp = get("grossProfit");
+  gp.baseValue = get("revenue").baseValue - get("cogs").baseValue;
+  gp.simulatedValue = revenue.simulatedValue - cogs.simulatedValue;
+
+  // Gross Margin %
+  const gm = get("grossMargin");
+  gm.baseValue = get("revenue").baseValue !== 0 ? Math.round((gp.baseValue / get("revenue").baseValue) * 1000) / 10 : 0;
+  gm.simulatedValue = revenue.simulatedValue !== 0 ? Math.round((gp.simulatedValue / revenue.simulatedValue) * 1000) / 10 : 0;
+
+  // Editable OpEx items
+  for (const id of ["marketing", "rnd", "ga", "salaries"]) {
+    const item = get(id);
+    item.simulatedValue = Math.round(item.baseValue * (1 + item.adjustmentPct));
+  }
+
+  // EBITDA
+  const totalOpEx = get("marketing").simulatedValue + get("rnd").simulatedValue + get("ga").simulatedValue + get("salaries").simulatedValue;
+  const baseOpEx = get("marketing").baseValue + get("rnd").baseValue + get("ga").baseValue + get("salaries").baseValue;
+  const ebitda = get("ebitda");
+  ebitda.baseValue = gp.baseValue - baseOpEx;
+  ebitda.simulatedValue = gp.simulatedValue - totalOpEx;
+
+  // EBITDA Margin %
+  const em = get("ebitdaMargin");
+  em.baseValue = get("revenue").baseValue !== 0 ? Math.round((ebitda.baseValue / get("revenue").baseValue) * 1000) / 10 : 0;
+  em.simulatedValue = revenue.simulatedValue !== 0 ? Math.round((ebitda.simulatedValue / revenue.simulatedValue) * 1000) / 10 : 0;
+
+  // Depreciation (fixed)
+  const dep = get("depreciation");
+  dep.simulatedValue = dep.baseValue;
+
+  // EBIT
+  const ebit = get("ebit");
+  ebit.baseValue = ebitda.baseValue - dep.baseValue;
+  ebit.simulatedValue = ebitda.simulatedValue - dep.simulatedValue;
+
+  // Interest (fixed)
+  const interest = get("interest");
+  interest.simulatedValue = interest.baseValue;
+
+  // Tax (25% of pre-tax income)
+  const preTax = ebit.simulatedValue - interest.simulatedValue;
+  const basePretax = ebit.baseValue - interest.baseValue;
+  const tax = get("tax");
+  tax.baseValue = Math.round(Math.max(0, basePretax) * 0.25);
+  tax.simulatedValue = Math.round(Math.max(0, preTax) * 0.25);
+
+  // Net Income
+  const ni = get("netIncome");
+  ni.baseValue = basePretax - tax.baseValue;
+  ni.simulatedValue = preTax - tax.simulatedValue;
+
+  // Net Margin %
+  const nm = get("netMargin");
+  nm.baseValue = get("revenue").baseValue !== 0 ? Math.round((ni.baseValue / get("revenue").baseValue) * 1000) / 10 : 0;
+  nm.simulatedValue = revenue.simulatedValue !== 0 ? Math.round((ni.simulatedValue / revenue.simulatedValue) * 1000) / 10 : 0;
+
+  return {
+    items: state.items.map(item => map.get(item.id)!),
+  };
+}
+
+export function adjustPnLItem(state: PnLSimulatorState, itemId: string, adjustmentPct: number): PnLSimulatorState {
+  const newState = {
+    items: state.items.map(item =>
+      item.id === itemId ? { ...item, adjustmentPct } : item
+    ),
+  };
+  return recalcPnL(newState);
+}
+
+export interface ImpactTrailEntry {
+  label: string;
+  delta: number;
+}
+
+export function computeImpactTrail(before: PnLSimulatorState, after: PnLSimulatorState): ImpactTrailEntry[] {
+  const trail: ImpactTrailEntry[] = [];
+  const keyItems = ["revenue", "grossProfit", "ebitda", "netIncome"];
+  for (const id of keyItems) {
+    const prev = before.items.find(i => i.id === id);
+    const next = after.items.find(i => i.id === id);
+    if (prev && next && Math.abs(next.simulatedValue - prev.simulatedValue) > 0.5) {
+      trail.push({
+        label: next.label,
+        delta: Math.round(next.simulatedValue - prev.simulatedValue),
+      });
+    }
+  }
+  return trail;
+}
+
+// ── Rolling Forecast ────────────────────────────────────────────
+
+export interface RollingForecastMonth {
+  month: string;
+  budget: number;
+  forecast_q1: number;
+  forecast_q2: number;
+  forecast_q3: number;
+  actual: number;
+}
+
+export function generateRollingForecastData(
+  metric: "revenue" | "ebitda" | "netIncome" = "revenue"
+): RollingForecastMonth[] {
+  // Base values per metric (monthly)
+  const bases: Record<string, number> = {
+    revenue: 1000000,
+    ebitda: 300000,
+    netIncome: 200000,
+  };
+  const base = bases[metric] || 1000000;
+
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // Seasonal pattern multipliers
+  const seasonal = [0.85, 0.88, 0.95, 1.0, 1.05, 1.08, 1.02, 0.98, 1.1, 1.15, 1.2, 1.3];
+
+  // Budget: set in January with slight growth trajectory
+  const budgetGrowth = 0.02; // 2% month-over-month
+
+  // Actual: real performance with some volatility
+  const actualVariance = [0.03, -0.02, 0.05, -0.01, 0.04, 0.02, -0.03, 0.01, 0.06, 0.03, 0.05, 0.08];
+
+  return months.map((month, i) => {
+    const seasonalBase = base * seasonal[i];
+    const budget = Math.round(base * (1 + budgetGrowth * i));
+
+    // Actual: seasonal + variance
+    const actual = Math.round(seasonalBase * (1 + actualVariance[i]));
+
+    // Q1 Forecast (set in April): adjusts based on Q1 actuals, +/- 5%
+    const q1Adj = i < 3 ? 0 : (actual > budget ? 0.03 : -0.02);
+    const forecast_q1 = i < 3 ? actual : Math.round(budget * (1 + q1Adj) * seasonal[i] / (seasonal[i] || 1));
+
+    // Q2 Forecast (set in July): +/- 10% adjustment
+    const q2Adj = i < 6 ? 0 : (actual > budget ? 0.06 : -0.04);
+    const forecast_q2 = i < 6 ? actual : Math.round(budget * (1 + q2Adj) * seasonal[i] / (seasonal[i] || 1));
+
+    // Q3 Forecast (set in October): close to actual +/- 3%
+    const q3Adj = i < 9 ? 0 : (actual > budget ? 0.02 : -0.01);
+    const forecast_q3 = i < 9 ? actual : Math.round(budget * (1 + q3Adj) * seasonal[i] / (seasonal[i] || 1));
+
+    return {
+      month,
+      budget,
+      forecast_q1,
+      forecast_q2,
+      forecast_q3,
+      actual,
+    };
+  });
+}
+
+export function computeForecastAccuracy(data: RollingForecastMonth[], quarter: "q1" | "q2" | "q3"): number {
+  // Compare forecast vs actual for the months AFTER the forecast was made
+  const forecastKey = `forecast_${quarter}` as keyof RollingForecastMonth;
+  const startMonth = quarter === "q1" ? 3 : quarter === "q2" ? 6 : 9;
+  const relevantMonths = data.slice(startMonth);
+
+  if (relevantMonths.length === 0) return 0;
+
+  let totalError = 0;
+  let totalActual = 0;
+  for (const m of relevantMonths) {
+    const forecast = m[forecastKey] as number;
+    const actual = m.actual;
+    totalError += Math.abs(forecast - actual);
+    totalActual += Math.abs(actual);
+  }
+
+  return totalActual > 0 ? Math.round((1 - totalError / totalActual) * 1000) / 10 : 0;
+}
+
+// ── Scenario Comparison ─────────────────────────────────────────
+
+export interface ScenarioComparisonData {
+  month: string;
+  bestCase: number;
+  baseCase: number;
+  worstCase: number;
+}
+
+export function generateScenarioComparisonData(
+  baseKPIs: ScenarioKPIs,
+  bestAssumptions: ScenarioAssumptions,
+  worstAssumptions: ScenarioAssumptions,
+  metric: keyof ScenarioKPIs = "revenue"
+): ScenarioComparisonData[] {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const seasonal = [0.85, 0.88, 0.95, 1.0, 1.05, 1.08, 1.02, 0.98, 1.1, 1.15, 1.2, 1.3];
+
+  const baseVal = baseKPIs[metric] as number;
+  const bestKPIs = computeScenarioKPIs(baseKPIs, bestAssumptions);
+  const worstKPIs = computeScenarioKPIs(baseKPIs, worstAssumptions);
+  const bestVal = bestKPIs[metric] as number;
+  const worstVal = worstKPIs[metric] as number;
+
+  // Monthly spread (annual / 12 * seasonal)
+  return months.map((month, i) => ({
+    month,
+    bestCase: Math.round((bestVal / 12) * seasonal[i]),
+    baseCase: Math.round((baseVal / 12) * seasonal[i]),
+    worstCase: Math.round((worstVal / 12) * seasonal[i]),
+  }));
+}

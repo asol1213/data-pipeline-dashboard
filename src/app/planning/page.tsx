@@ -15,6 +15,37 @@ const planningTools = [
     ),
   },
   {
+    title: "P&L Simulator",
+    description: "Interactive P&L where adjusting any line item cascades all dependent lines in real-time.",
+    href: "/planning/simulator",
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Rolling Forecast",
+    description: "Visual timeline showing how the forecast evolved over time vs. budget and actuals.",
+    href: "/planning/forecast",
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+      </svg>
+    ),
+  },
+  {
+    title: "Scenario Compare",
+    description: "Visual charts comparing best, base, and worst case scenarios with confidence bands.",
+    href: "/planning/compare",
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" />
+      </svg>
+    ),
+  },
+  {
     title: "Budget Builder",
     description: "Build top-down or bottom-up budgets with department-level allocation and quarterly breakdowns.",
     href: "/planning/budget",
