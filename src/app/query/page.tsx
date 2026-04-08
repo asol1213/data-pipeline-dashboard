@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 
 interface QueryResult {
   columns: string[];
@@ -17,26 +17,66 @@ interface QueryHistoryItem {
   error?: string;
 }
 
-const EXAMPLE_QUERIES = [
-  { label: "All data (first 5)", sql: "SELECT * FROM sales-q1-2026 LIMIT 5" },
-  { label: "Revenue by month (desc)", sql: "SELECT Month, Revenue FROM sales-q1-2026 ORDER BY Revenue DESC" },
-  { label: "Revenue aggregates", sql: "SELECT AVG(Revenue), MAX(Revenue), MIN(Revenue) FROM sales-q1-2026" },
-  { label: "High revenue months", sql: "SELECT Month, Revenue FROM sales-q1-2026 WHERE Revenue > 200000" },
-  { label: "High churn count", sql: "SELECT COUNT(*) FROM sales-q1-2026 WHERE Churn_Rate > 3" },
-];
+interface DatasetMeta {
+  id: string;
+  name: string;
+  headers: string[];
+  columnTypes: Record<string, string>;
+  rowCount: number;
+}
+
+interface ExampleQuery {
+  label: string;
+  sql: string;
+}
+
+function generateExampleQueries(dataset: DatasetMeta): ExampleQuery[] {
+  const { id, headers, columnTypes, rowCount } = dataset;
+  const numericCols = headers.filter((h) => columnTypes[h] === "number");
+  const queries: ExampleQuery[] = [];
+
+  queries.push({
+    label: "All data (first 5)",
+    sql: `SELECT * FROM ${id} LIMIT 5`,
+  });
+
+  if (numericCols.length >= 2) {
+    queries.push({
+      label: `${numericCols[0]} & ${numericCols[1]} sorted`,
+      sql: `SELECT ${numericCols[0]}, ${numericCols[1]} FROM ${id} ORDER BY ${numericCols[0]} DESC`,
+    });
+  } else if (numericCols.length === 1) {
+    queries.push({
+      label: `${numericCols[0]} sorted`,
+      sql: `SELECT ${numericCols[0]} FROM ${id} ORDER BY ${numericCols[0]} DESC`,
+    });
+  }
+
+  if (numericCols.length >= 1) {
+    queries.push({
+      label: `${numericCols[0]} aggregates`,
+      sql: `SELECT AVG(${numericCols[0]}), MAX(${numericCols[0]}) FROM ${id}`,
+    });
+
+    const medianEstimate = Math.round(rowCount / 2);
+    queries.push({
+      label: `Count where ${numericCols[0]} > ${medianEstimate}`,
+      sql: `SELECT COUNT(*) FROM ${id} WHERE ${numericCols[0]} > ${medianEstimate}`,
+    });
+  }
+
+  return queries;
+}
 
 function highlightSQL(sql: string): string {
   const keywords = /\b(SELECT|FROM|WHERE|ORDER\s+BY|GROUP\s+BY|HAVING|LIMIT|ASC|DESC|AND|OR|NOT|IN|LIKE|BETWEEN|IS|NULL|AS|ON|JOIN|LEFT|RIGHT|INNER|OUTER|UNION|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|TABLE|INTO|VALUES|SET|DISTINCT)\b/gi;
   const functions = /\b(COUNT|SUM|AVG|MIN|MAX|ROUND|UPPER|LOWER|LENGTH|COALESCE|IFNULL|CAST)\b/gi;
   const strings = /('[^']*')/g;
-  const numbers = /\b(\d+\.?\d*)\b/g;
 
   let result = sql;
-  // Order matters: strings first to avoid highlighting inside strings
   result = result.replace(strings, '<span class="sql-string">$1</span>');
   result = result.replace(functions, '<span class="sql-function">$1</span>');
   result = result.replace(keywords, '<span class="sql-keyword">$1</span>');
-  // Only highlight numbers that aren't inside a span tag
   result = result.replace(/(?<![\w">])(\d+\.?\d*)(?![^<]*>)/g, '<span class="sql-number">$1</span>');
   return result;
 }
@@ -54,6 +94,26 @@ export default function QueryPage() {
   const [showHistory, setShowHistory] = useState(true);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [datasets, setDatasets] = useState<DatasetMeta[]>([]);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string>("sales-q1-2026");
+
+  useEffect(() => {
+    fetch("/api/datasets")
+      .then((res) => res.json())
+      .then((data: DatasetMeta[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setDatasets(data);
+          setSelectedDatasetId(data[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const exampleQueries = useMemo(() => {
+    const ds = datasets.find((d) => d.id === selectedDatasetId);
+    if (!ds) return [];
+    return generateExampleQueries(ds);
+  }, [datasets, selectedDatasetId]);
 
   const runQuery = useCallback(async () => {
     if (!sql.trim()) return;
@@ -165,7 +225,6 @@ export default function QueryPage() {
                 placeholder="SELECT * FROM dataset_id WHERE column > value"
                 spellCheck={false}
               />
-              {/* Syntax-highlighted overlay for display */}
               <div
                 className="absolute top-0 left-0 w-full p-4 font-mono text-sm pointer-events-none whitespace-pre-wrap break-words min-h-[180px] opacity-0"
                 aria-hidden="true"
@@ -287,8 +346,24 @@ export default function QueryPage() {
                   Example Queries
                 </span>
               </div>
+              {/* Dataset selector for examples */}
+              {datasets.length > 0 && (
+                <div className="px-4 py-3 border-b border-border-subtle">
+                  <select
+                    value={selectedDatasetId}
+                    onChange={(e) => setSelectedDatasetId(e.target.value)}
+                    className="w-full bg-bg-input border border-border-subtle rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent cursor-pointer"
+                  >
+                    {datasets.map((ds) => (
+                      <option key={ds.id} value={ds.id}>
+                        {ds.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="divide-y divide-border-subtle/50">
-                {EXAMPLE_QUERIES.map((eq, i) => (
+                {exampleQueries.map((eq, i) => (
                   <button
                     key={i}
                     onClick={() => setSql(eq.sql)}
@@ -302,6 +377,11 @@ export default function QueryPage() {
                     </div>
                   </button>
                 ))}
+                {exampleQueries.length === 0 && (
+                  <div className="px-4 py-3 text-xs text-text-muted">
+                    Loading datasets...
+                  </div>
+                )}
               </div>
             </div>
 

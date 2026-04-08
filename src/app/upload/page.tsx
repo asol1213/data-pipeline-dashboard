@@ -4,6 +4,23 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { parseCSV, detectAllColumnTypes } from "@/lib/csv-parser";
 
+const SAMPLE_CSV = `Month,Revenue,Customers,Churn_Rate
+Jan 2026,142500,1205,3.2
+Feb 2026,156800,1287,2.8
+Mar 2026,163200,1342,2.5`;
+
+function downloadSampleCSV() {
+  const blob = new Blob([SAMPLE_CSV], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "sample-data.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export default function UploadPage() {
   const router = useRouter();
   const [dragActive, setDragActive] = useState(false);
@@ -146,6 +163,27 @@ export default function UploadPage() {
             className="hidden"
           />
         </label>
+      </div>
+
+      {/* Sample CSV Download */}
+      <div className="mt-6 bg-bg-card rounded-xl border border-border-subtle p-5 flex items-center justify-between">
+        <div>
+          <p className="text-sm text-text-secondary font-medium">
+            Not sure what to upload? Download our sample CSV to try it out.
+          </p>
+          <p className="text-xs text-text-muted mt-1">
+            Includes Month, Revenue, Customers, and Churn_Rate columns
+          </p>
+        </div>
+        <button
+          onClick={downloadSampleCSV}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-secondary hover:bg-border-subtle text-text-secondary hover:text-text-primary border border-border-subtle transition-colors text-sm font-medium flex-shrink-0"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Download Sample CSV
+        </button>
       </div>
 
       {error && (

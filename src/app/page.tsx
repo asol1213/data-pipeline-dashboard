@@ -5,9 +5,7 @@ import { getDataset } from "@/lib/store";
 import { computeDatasetStats } from "@/lib/stats";
 import { analyzeDataset } from "@/lib/insights";
 import { calculateQuality } from "@/lib/quality";
-import KPICard from "@/components/KPICard";
-import DashboardCharts from "./DashboardCharts";
-import DashboardTable from "./DashboardTable";
+import DashboardClient from "./DashboardClient";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +49,7 @@ export default function DashboardPage() {
     );
   }
 
-  // Show the most recent dataset on the dashboard
+  // Show the most recent dataset on the dashboard by default
   const latest = datasets[datasets.length - 1];
   const dataset = getDataset(latest.id);
   if (!dataset) return null;
@@ -62,241 +60,23 @@ export default function DashboardPage() {
     dataset.columnTypes
   );
 
-  const numericCols = dataset.headers.filter(
-    (h) => dataset.columnTypes[h] === "number"
-  );
-  const labelCol =
-    dataset.headers.find((h) => dataset.columnTypes[h] === "string") ??
-    dataset.headers[0];
-
-  // Build anomaly indices map and column stats
-  const anomalyIndices: Record<string, number[]> = {};
-  const columnStatsMap: Record<string, { mean: number; stddev: number }> = {};
-  stats.columns.forEach((col) => {
-    if (col.anomalyIndices && col.anomalyIndices.length > 0) {
-      anomalyIndices[col.column] = col.anomalyIndices;
-    }
-    if (col.mean !== undefined && col.stddev !== undefined) {
-      columnStatsMap[col.column] = { mean: col.mean, stddev: col.stddev };
-    }
-  });
-
-  const totalAnomalies = Object.values(anomalyIndices).reduce(
-    (sum, arr) => sum + arr.length,
-    0
-  );
-
   const insights = analyzeDataset(dataset.rows, stats, dataset.headers, dataset.columnTypes);
-  const topInsights = insights.slice(0, 6);
   const quality = calculateQuality(dataset.rows, stats);
 
-  const chartData = dataset.rows.map((row) => {
-    const item: Record<string, string | number> = { [labelCol]: row[labelCol] };
-    numericCols.forEach((col) => {
-      item[col] = Number(row[col]);
-    });
-    return item;
-  });
-
-  const chartColors = [
-    "#3b82f6",
-    "#8b5cf6",
-    "#06b6d4",
-    "#f59e0b",
-    "#ef4444",
-    "#22c55e",
-  ];
+  const initialData = {
+    stats,
+    insights,
+    quality,
+    rows: dataset.rows,
+    headers: dataset.headers,
+    columnTypes: dataset.columnTypes,
+  };
 
   return (
-    <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Dashboard Header */}
-      <div className="dashboard-header rounded-2xl p-6 mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-            <p className="text-sm text-blue-200 mt-1">
-              Showing: {latest.name} &middot; {datasets.length} dataset
-              {datasets.length !== 1 ? "s" : ""} total
-            </p>
-          </div>
-          <Link
-            href={`/datasets/${latest.id}`}
-            className="text-sm bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg backdrop-blur-sm transition-colors"
-          >
-            View full dataset &rarr;
-          </Link>
-        </div>
-      </div>
-
-      {/* Quick Stats Summary Bar */}
-      <div className="bg-bg-card rounded-xl border border-border-subtle p-4 mb-8">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-accent"></div>
-              <span className="text-sm text-text-secondary font-medium">{stats.totalRows} rows</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#8b5cf6]"></div>
-              <span className="text-sm text-text-secondary font-medium">{stats.totalColumns} columns</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#f59e0b]"></div>
-              <span className="text-sm text-text-secondary font-medium">{totalAnomalies} anomalies</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${quality.qualityScore > 80 ? "bg-[#22c55e]" : quality.qualityScore > 60 ? "bg-[#f59e0b]" : "bg-[#ef4444]"}`}></div>
-              <span className="text-sm text-text-secondary font-medium">Quality: {quality.qualityScore}%</span>
-            </div>
-          </div>
-          <span className="text-xs text-text-muted">Last updated: {new Date().toLocaleDateString()}</span>
-        </div>
-      </div>
-
-      {/* Top Insights - PROMINENT */}
-      {topInsights.length > 0 && (
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-1 h-6 rounded-full bg-accent"></div>
-              <h2 className="text-lg font-semibold text-text-primary">Key Insights</h2>
-              <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full font-medium">
-                {insights.length} found
-              </span>
-            </div>
-            <Link
-              href={`/datasets/${latest.id}`}
-              className="text-xs text-accent hover:text-accent-hover"
-            >
-              View all insights &rarr;
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {topInsights.map((insight, i) => (
-              <div
-                key={i}
-                className="bg-bg-card rounded-xl border border-border-subtle p-4 hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5 transition-all"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-xl flex-shrink-0">{insight.icon}</span>
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider font-medium text-text-muted block mb-1">
-                      {insight.type}
-                    </span>
-                    <p className="text-sm text-text-primary leading-relaxed">{insight.text}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <KPICard
-          label="Total Rows"
-          value={stats.totalRows.toLocaleString()}
-          icon={
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 10h16M4 14h16M4 18h16"
-              />
-            </svg>
-          }
-        />
-        <KPICard
-          label="Columns"
-          value={stats.totalColumns}
-          subtitle={`${numericCols.length} numeric`}
-          icon={
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"
-              />
-            </svg>
-          }
-        />
-        {stats.numericSummary[0] && (
-          <KPICard
-            label={`Avg ${stats.numericSummary[0].column}`}
-            value={stats.numericSummary[0].mean.toLocaleString()}
-            subtitle={`Range: ${stats.numericSummary[0].min.toLocaleString()} - ${stats.numericSummary[0].max.toLocaleString()}`}
-            trend="up"
-            icon={
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                />
-              </svg>
-            }
-          />
-        )}
-        <KPICard
-          label="Anomalies"
-          value={totalAnomalies}
-          subtitle={totalAnomalies > 0 ? "Values >2 std dev" : "None detected"}
-          trend={totalAnomalies > 0 ? "down" : "neutral"}
-          icon={
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
-              />
-            </svg>
-          }
-        />
-      </div>
-
-      {/* Charts - 2x2 grid */}
-      <DashboardCharts
-        chartData={chartData}
-        labelCol={labelCol}
-        numericCols={numericCols}
-        chartColors={chartColors}
-      />
-
-      {/* Data Table */}
-      <div className="mt-8">
-        <DashboardTable
-          headers={dataset.headers}
-          rows={dataset.rows}
-          columnTypes={dataset.columnTypes}
-          anomalyIndices={anomalyIndices}
-          columnStats={columnStatsMap}
-        />
-      </div>
-    </div>
+    <DashboardClient
+      datasets={datasets}
+      initialDatasetId={latest.id}
+      initialData={initialData}
+    />
   );
 }
