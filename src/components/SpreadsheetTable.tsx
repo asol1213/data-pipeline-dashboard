@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import EditableCell from "./EditableCell";
 import { evaluateCellFormula } from "@/lib/cell-formulas";
+import { logAudit } from "@/lib/audit";
 
 export interface HistoryEntry {
   action: "edit" | "addRow" | "deleteRow" | "addColumn";
@@ -23,6 +24,8 @@ interface SpreadsheetTableProps {
   onDeleteRow: (rowIndex: number) => void;
   onAddColumn: (name: string, type: string) => void;
   onBulkEdit?: (edits: { row: number; col: string; value: string }[]) => void;
+  datasetId?: string;
+  datasetName?: string;
 }
 
 const MAX_HISTORY = 50;
@@ -36,6 +39,8 @@ export default function SpreadsheetTable({
   onDeleteRow,
   onAddColumn,
   onBulkEdit,
+  datasetId = "",
+  datasetName = "",
 }: SpreadsheetTableProps) {
   const [editingCell, setEditingCell] = useState<{
     row: number;
@@ -158,8 +163,25 @@ export default function SpreadsheetTable({
       });
       onCellEdit(rowIndex, col, newValue);
       setEditingCell(null);
+
+      // Audit log
+      if (datasetId) {
+        logAudit({
+          action: "cell_edit",
+          datasetId,
+          datasetName,
+          details: {
+            row: rowIndex,
+            column: col,
+            oldValue,
+            newValue,
+            description: `Row ${rowIndex + 1}, Column "${col}": "${oldValue}" → "${newValue}"`,
+          },
+          user: "Andrew Arbo",
+        });
+      }
     },
-    [data, onCellEdit, pushHistory]
+    [data, onCellEdit, pushHistory, datasetId, datasetName]
   );
 
   const handleUndo = useCallback(() => {
@@ -427,6 +449,18 @@ export default function SpreadsheetTable({
   const handleAddColumn = () => {
     if (!newColName.trim()) return;
     onAddColumn(newColName.trim(), newColType);
+    if (datasetId) {
+      logAudit({
+        action: "column_add",
+        datasetId,
+        datasetName,
+        details: {
+          column: newColName.trim(),
+          description: `Column "${newColName.trim()}" (${newColType}) added`,
+        },
+        user: "Andrew Arbo",
+      });
+    }
     setShowAddColumnModal(false);
     setNewColName("");
     setNewColType("string");
@@ -497,7 +531,21 @@ export default function SpreadsheetTable({
       {/* Toolbar */}
       <div className="flex items-center gap-2 p-3 border-b border-border-subtle bg-bg-secondary/50">
         <button
-          onClick={onAddRow}
+          onClick={() => {
+            onAddRow();
+            if (datasetId) {
+              logAudit({
+                action: "row_add",
+                datasetId,
+                datasetName,
+                details: {
+                  row: data.length,
+                  description: `New row #${data.length + 1} added`,
+                },
+                user: "Andrew Arbo",
+              });
+            }
+          }}
           className="px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
         >
           + Add Row
@@ -746,6 +794,18 @@ export default function SpreadsheetTable({
                 newValue: "",
                 rowData: data[contextMenu.rowIndex],
               });
+              if (datasetId) {
+                logAudit({
+                  action: "row_delete",
+                  datasetId,
+                  datasetName,
+                  details: {
+                    row: contextMenu.rowIndex,
+                    description: `Row #${contextMenu.rowIndex + 1} deleted`,
+                  },
+                  user: "Andrew Arbo",
+                });
+              }
               setContextMenu(null);
             }}
             className="w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger/10 transition-colors"

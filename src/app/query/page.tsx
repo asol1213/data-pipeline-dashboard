@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { getSavedQueries, saveQuery, deleteSavedQuery, type SavedQuery } from "@/lib/saved-queries";
+import { logAudit } from "@/lib/audit";
 import QueryExcelExport from "@/components/QueryExcelExport";
 
 interface QueryResult {
@@ -169,12 +170,24 @@ export default function QueryPage() {
         { sql: sql.trim(), timestamp: Date.now(), rowCount: data.rowCount, executionTime: data.executionTime },
         ...prev,
       ].slice(0, 10));
+
+      // Audit log for query execution
+      logAudit({
+        action: "query_run",
+        datasetId: selectedDatasetId || "unknown",
+        datasetName: datasets.find((d) => d.id === selectedDatasetId)?.name ?? "Unknown",
+        details: {
+          sql: sql.trim(),
+          description: `${data.rowCount} row${data.rowCount !== 1 ? "s" : ""} returned in ${data.executionTime}ms`,
+        },
+        user: "Andrew Arbo",
+      });
     } catch {
       setError("Failed to execute query");
     } finally {
       setLoading(false);
     }
-  }, [sql]);
+  }, [sql, selectedDatasetId, datasets]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {

@@ -161,6 +161,24 @@ export default function RootLayout({
                   </div>
                 </div>
                 <Link
+                  href="/ask"
+                  className="text-sm font-medium text-accent hover:text-accent-hover transition-colors flex items-center gap-1"
+                >
+                  <span>&#10024;</span> Ask
+                </Link>
+                <Link
+                  href="/profiling"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Profiling
+                </Link>
+                <Link
+                  href="/audit"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Audit
+                </Link>
+                <Link
                   href="/chat"
                   className="text-sm text-text-secondary hover:text-text-primary transition-colors"
                 >

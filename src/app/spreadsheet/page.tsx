@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import SpreadsheetTable from "@/components/SpreadsheetTable";
 import { exportToExcel } from "@/lib/excel-export";
 import { parseCSV, detectAllColumnTypes } from "@/lib/csv-parser";
+import { saveVersion } from "@/lib/audit";
 import AutoFillButton from "./AutoFillButton";
 import QuickChart from "./QuickChart";
 import * as XLSX from "xlsx";
@@ -138,11 +139,27 @@ export default function SpreadsheetPage() {
     [markUnsaved]
   );
 
+  // Auto-save version every 10 edits
+  const lastVersionAtRef = useRef(0);
+  useEffect(() => {
+    if (unsavedChanges > 0 && unsavedChanges - lastVersionAtRef.current >= 10) {
+      lastVersionAtRef.current = unsavedChanges;
+      if (selectedDatasetId && data.length > 0) {
+        saveVersion(selectedDatasetId, data, `Auto-saved after ${unsavedChanges} edits`);
+      }
+    }
+  }, [unsavedChanges, selectedDatasetId, data]);
+
   const handleSave = async () => {
     if (!selectedDatasetId || saving) return;
     setSaving(true);
     setSaveStatus("saving");
     try {
+      // Save a version snapshot on manual save
+      if (data.length > 0) {
+        saveVersion(selectedDatasetId, data, "Manual save");
+      }
+
       const res = await fetch(
         `/api/datasets/${selectedDatasetId}/update`,
         {
@@ -153,6 +170,7 @@ export default function SpreadsheetPage() {
       );
       if (res.ok) {
         setUnsavedChanges(0);
+        lastVersionAtRef.current = 0;
         setSaveStatus("saved");
       } else {
         setSaveStatus("error");
@@ -409,6 +427,8 @@ export default function SpreadsheetPage() {
               onDeleteRow={handleDeleteRow}
               onAddColumn={handleAddColumn}
               onBulkEdit={handleBulkEdit}
+              datasetId={selectedDatasetId}
+              datasetName={datasets.find((d) => d.id === selectedDatasetId)?.name ?? ""}
             />
           </div>
           {/* Auto-fill & Quick Chart tools */}
