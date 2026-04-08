@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import SpreadsheetTable from "@/components/SpreadsheetTable";
+import { exportToExcel } from "@/lib/excel-export";
+import AutoFillButton from "./AutoFillButton";
+import QuickChart from "./QuickChart";
 
 interface DatasetMeta {
   id: string;
@@ -226,6 +229,22 @@ export default function SpreadsheetPage() {
           </span>
 
           <button
+            onClick={() => {
+              if (data.length > 0 && headers.length > 0) {
+                const dsName = datasets.find((d) => d.id === selectedDatasetId)?.name ?? "spreadsheet";
+                exportToExcel(data, headers, dsName);
+              }
+            }}
+            disabled={data.length === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-bg-secondary border border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-color transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3" />
+            </svg>
+            Export Excel
+          </button>
+
+          <button
             onClick={handleSave}
             disabled={saving || unsavedChanges === 0}
             className="px-4 py-2 text-sm font-medium rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -245,18 +264,29 @@ export default function SpreadsheetPage() {
           Select a dataset to start editing
         </div>
       ) : (
-        <div className="flex-1 bg-bg-card rounded-xl border border-border-subtle overflow-hidden">
-          <SpreadsheetTable
-            data={data}
-            headers={headers}
-            columnTypes={columnTypes}
-            onCellEdit={handleCellEdit}
-            onAddRow={handleAddRow}
-            onDeleteRow={handleDeleteRow}
-            onAddColumn={handleAddColumn}
-            onBulkEdit={handleBulkEdit}
-          />
-        </div>
+        <>
+          <div className="flex-1 bg-bg-card rounded-xl border border-border-subtle overflow-hidden">
+            <SpreadsheetTable
+              data={data}
+              headers={headers}
+              columnTypes={columnTypes}
+              onCellEdit={handleCellEdit}
+              onAddRow={handleAddRow}
+              onDeleteRow={handleDeleteRow}
+              onAddColumn={handleAddColumn}
+              onBulkEdit={handleBulkEdit}
+            />
+          </div>
+          {/* Auto-fill & Quick Chart tools */}
+          <div className="flex items-center gap-3 mt-3">
+            <AutoFillButton
+              data={data}
+              headers={headers}
+              onBulkEdit={handleBulkEdit}
+            />
+            <QuickChart data={data} headers={headers} columnTypes={columnTypes} />
+          </div>
+        </>
       )}
     </div>
   );

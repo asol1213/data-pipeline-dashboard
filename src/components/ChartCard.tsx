@@ -23,7 +23,7 @@ import { forecast } from "@/lib/forecast";
 
 const PRO_PALETTE = ["#3b82f6", "#8b5cf6", "#06b6d4", "#f59e0b", "#ef4444", "#22c55e"];
 
-type ChartType = "bar" | "line" | "area" | "pie";
+type ChartType = "bar" | "line" | "area" | "pie" | "waterfall";
 
 interface ChartCardProps {
   title: string;
@@ -105,6 +105,7 @@ export default function ChartCard({
     { key: "line", label: "Line" },
     { key: "area", label: "Area" },
     { key: "pie", label: "Pie" },
+    { key: "waterfall", label: "Waterfall" },
   ];
 
   const tooltipStyle = {
@@ -125,6 +126,61 @@ export default function ChartCard({
     value: Number(item[yKey]) || 0,
     fill: PRO_PALETTE[i % PRO_PALETTE.length],
   }));
+
+  // Waterfall chart data: stacked bars with invisible base + visible change
+  const waterfallData = useMemo(() => {
+    let runningTotal = 0;
+    const result: {
+      name: string;
+      base: number;
+      value: number;
+      total: number;
+      isPositive: boolean;
+      isTotal: boolean;
+    }[] = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const val = Number(data[i][yKey]) || 0;
+      const isLast = i === data.length - 1;
+
+      if (i === 0) {
+        // First bar: starts from 0
+        result.push({
+          name: String(data[i][xKey]),
+          base: 0,
+          value: val,
+          total: val,
+          isPositive: val >= 0,
+          isTotal: false,
+        });
+        runningTotal = val;
+      } else if (isLast) {
+        // Last bar: show as total from 0
+        result.push({
+          name: String(data[i][xKey]),
+          base: 0,
+          value: val,
+          total: val,
+          isPositive: val >= 0,
+          isTotal: true,
+        });
+      } else {
+        // Middle bars: show the change
+        const change = val;
+        const base = change >= 0 ? runningTotal : runningTotal + change;
+        result.push({
+          name: String(data[i][xKey]),
+          base: Math.max(0, base),
+          value: Math.abs(change),
+          total: runningTotal + change,
+          isPositive: change >= 0,
+          isTotal: false,
+        });
+        runningTotal += change;
+      }
+    }
+    return result;
+  }, [data, xKey, yKey]);
 
   const cursorStyle = onDrillDown ? { cursor: "pointer" } : {};
 
@@ -256,6 +312,36 @@ export default function ChartCard({
                 dot={{ fill: color, r: 3, strokeWidth: 2, stroke: "#1a2332" }}
               />
             </AreaChart>
+          ) : chartType === "waterfall" ? (
+            <BarChart data={waterfallData} onClick={handleBarClick}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" opacity={0.5} />
+              <XAxis dataKey="name" {...axisProps} />
+              <YAxis {...axisProps} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={(value: any, name: any, props: any) => {
+                  if (name === "base") return [null, null];
+                  const item = props?.payload;
+                  if (!item) return [String(value), "Value"];
+                  return [
+                    item.isTotal ? `Total: ${item.total}` : `${item.isPositive ? "+" : "-"}${value} (Total: ${item.total})`,
+                    "Value",
+                  ];
+                }}
+              />
+              {/* Invisible base bar */}
+              <Bar dataKey="base" stackId="waterfall" fill="transparent" radius={0} />
+              {/* Visible value bar with per-cell coloring */}
+              <Bar dataKey="value" stackId="waterfall" radius={[4, 4, 0, 0]}>
+                {waterfallData.map((entry, index) => (
+                  <Cell
+                    key={`wf-${index}`}
+                    fill={entry.isTotal ? "#3b82f6" : entry.isPositive ? "#22c55e" : "#ef4444"}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
           ) : (
             <PieChart>
               <Tooltip contentStyle={tooltipStyle} />

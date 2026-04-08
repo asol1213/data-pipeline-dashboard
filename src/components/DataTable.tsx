@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { formatNumber, autoFormat } from "@/lib/format";
 
 interface ColumnStatInfo {
   mean: number;
@@ -85,6 +86,7 @@ export default function DataTable({
   const [formatting, setFormatting] = useState<ConditionalFormattingMode>(
     externalFormatting ?? "heatmap"
   );
+  const [showFormatted, setShowFormatted] = useState(true);
   const pageSize = compact ? 10 : 25;
 
   const numericColumns = useMemo(
@@ -216,6 +218,26 @@ export default function DataTable({
           </span>
         </div>
         <div className="flex items-center gap-3">
+          {/* Raw / Formatted toggle */}
+          {numericColumns.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <div className="flex gap-0.5 bg-bg-secondary rounded-lg p-0.5">
+                {(["Raw", "Formatted"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setShowFormatted(mode === "Formatted")}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                      (mode === "Formatted") === showFormatted
+                        ? "bg-accent text-white shadow-sm"
+                        : "text-text-muted hover:text-text-secondary"
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {/* Conditional formatting toggle */}
           {numericColumns.length > 0 && (
             <div className="flex items-center gap-1.5">
@@ -321,7 +343,11 @@ export default function DataTable({
                             style={{ width: `${cellFormat.barWidth}%` }}
                           />
                         )}
-                        <span style={{ position: "relative", zIndex: 1 }}>{row[h]}</span>
+                        <span style={{ position: "relative", zIndex: 1 }}>
+                          {showFormatted && columnTypes[h] === "number" && !isNaN(Number(row[h]))
+                            ? formatNumber(Number(row[h]), autoFormat(h, Number(row[h])))
+                            : row[h]}
+                        </span>
                         {anomaly && (
                           <span className="ml-1.5 inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-danger/20 text-danger">
                             {deviations ? `${deviations}\u03C3` : "!!"}

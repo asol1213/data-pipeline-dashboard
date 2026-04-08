@@ -9,6 +9,7 @@ import DatasetDetailCharts from "./DatasetDetailCharts";
 import DatasetDetailTable from "./DatasetDetailTable";
 import CsvDownloadButton from "./CsvDownloadButton";
 import PdfReportButton from "./PdfReportButton";
+import ExcelExportButton from "./ExcelExportButton";
 import CalculatedColumns from "./CalculatedColumns";
 
 export const dynamic = "force-dynamic";
@@ -126,6 +127,11 @@ export default async function DatasetDetailPage({
               stats={stats}
               insights={insights}
               quality={quality}
+            />
+            <ExcelExportButton
+              headers={dataset.headers}
+              rows={dataset.rows}
+              fileName={dataset.name}
             />
             <CsvDownloadButton
               headers={dataset.headers}

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { getSavedQueries, saveQuery, deleteSavedQuery, type SavedQuery } from "@/lib/saved-queries";
+import QueryExcelExport from "@/components/QueryExcelExport";
 
 interface QueryResult {
   columns: string[];
@@ -341,6 +342,9 @@ export default function QueryPage() {
               </div>
               <div className="w-px h-4 bg-border-subtle"></div>
               <span className="text-xs text-text-muted">{result.columns.length} column{result.columns.length !== 1 ? "s" : ""}</span>
+              <div className="ml-auto">
+                <QueryExcelExport columns={result.columns} rows={result.rows} />
+              </div>
             </div>
           )}
 

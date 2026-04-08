@@ -1,3 +1,5 @@
+import { formatNumber, autoFormat } from "@/lib/format";
+
 interface KPICardProps {
   label: string;
   value: string | number;
@@ -13,6 +15,17 @@ export default function KPICard({
   trend,
   icon,
 }: KPICardProps) {
+  // Auto-format numeric KPI values based on the label
+  const displayValue = (() => {
+    if (typeof value === "number") {
+      return formatNumber(value, autoFormat(label, value));
+    }
+    const num = Number(value);
+    if (!isNaN(num) && String(value).trim() !== "") {
+      return formatNumber(num, autoFormat(label, num));
+    }
+    return value;
+  })();
   const trendColor =
     trend === "up"
       ? "text-success"
@@ -35,7 +48,7 @@ export default function KPICard({
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="text-xs font-medium uppercase tracking-wider text-text-muted mb-2">{label}</p>
-          <p className="text-3xl font-bold text-text-primary tracking-tight">{value}</p>
+          <p className="text-3xl font-bold text-text-primary tracking-tight">{displayValue}</p>
           {subtitle && (
             <p className={`text-xs mt-2 ${trendColor} flex items-center gap-1`}>
               {trendArrow && <span className="text-sm font-bold">{trendArrow}</span>}
