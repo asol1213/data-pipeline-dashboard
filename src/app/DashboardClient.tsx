@@ -174,6 +174,12 @@ export default function DashboardClient({
               ))}
             </select>
             <Link
+              href="/presets"
+              className="text-sm bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg backdrop-blur-sm transition-colors"
+            >
+              Presets
+            </Link>
+            <Link
               href={`/datasets/${selectedId}`}
               className="text-sm bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg backdrop-blur-sm transition-colors"
             >

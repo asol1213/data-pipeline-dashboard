@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -17,7 +17,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  ReferenceLine,
 } from "recharts";
+import { forecast } from "@/lib/forecast";
 
 const PRO_PALETTE = ["#3b82f6", "#8b5cf6", "#06b6d4", "#f59e0b", "#ef4444", "#22c55e"];
 
@@ -41,6 +43,39 @@ export default function ChartCard({
   defaultType = "bar",
 }: ChartCardProps) {
   const [chartType, setChartType] = useState<ChartType>(defaultType);
+  const [showForecast, setShowForecast] = useState(false);
+
+  const forecastData = useMemo(() => {
+    if (!showForecast || chartType !== "line") return null;
+    const values = data.map((d) => Number(d[yKey])).filter((v) => !isNaN(v));
+    if (values.length < 3) return null;
+    const fc = forecast(values, 3);
+    if (fc.predicted.length === 0) return null;
+
+    return fc.predicted.map((pred, i) => ({
+      [xKey]: `+${i + 1}`,
+      [yKey]: null as number | null,
+      [`${yKey}_forecast`]: pred,
+      [`${yKey}_upper`]: fc.confidence.upper[i],
+      [`${yKey}_lower`]: fc.confidence.lower[i],
+    }));
+  }, [data, xKey, yKey, showForecast, chartType]);
+
+  const chartDataWithForecast = useMemo(() => {
+    if (!forecastData) return data;
+    const existing = data.map((d) => ({
+      ...d,
+      [`${yKey}_forecast`]: null as number | null,
+      [`${yKey}_upper`]: null as number | null,
+      [`${yKey}_lower`]: null as number | null,
+    }));
+    // Connect the forecast to the last data point
+    if (existing.length > 0) {
+      const lastVal = Number(existing[existing.length - 1][yKey]);
+      existing[existing.length - 1][`${yKey}_forecast`] = lastVal;
+    }
+    return [...existing, ...forecastData];
+  }, [data, forecastData, yKey]);
 
   const chartTypes: { key: ChartType; label: string }[] = [
     { key: "bar", label: "Bar" },
@@ -75,20 +110,34 @@ export default function ChartCard({
           <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
           <p className="text-[11px] text-text-muted mt-0.5">Column: {yKey}</p>
         </div>
-        <div className="flex gap-0.5 bg-bg-secondary rounded-lg p-0.5">
-          {chartTypes.map((ct) => (
+        <div className="flex items-center gap-2">
+          {chartType === "line" && (
             <button
-              key={ct.key}
-              onClick={() => setChartType(ct.key)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                chartType === ct.key
-                  ? "bg-accent text-white shadow-sm"
-                  : "text-text-muted hover:text-text-secondary"
+              onClick={() => setShowForecast(!showForecast)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all border ${
+                showForecast
+                  ? "bg-[#8b5cf6]/10 text-[#8b5cf6] border-[#8b5cf6]/30"
+                  : "text-text-muted hover:text-text-secondary border-border-subtle"
               }`}
             >
-              {ct.label}
+              Forecast
             </button>
-          ))}
+          )}
+          <div className="flex gap-0.5 bg-bg-secondary rounded-lg p-0.5">
+            {chartTypes.map((ct) => (
+              <button
+                key={ct.key}
+                onClick={() => setChartType(ct.key)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  chartType === ct.key
+                    ? "bg-accent text-white shadow-sm"
+                    : "text-text-muted hover:text-text-secondary"
+                }`}
+              >
+                {ct.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <div style={{ width: "100%", minHeight: 300 }}>
@@ -102,11 +151,50 @@ export default function ChartCard({
               <Bar dataKey={yKey} fill={color} radius={[6, 6, 0, 0]} />
             </BarChart>
           ) : chartType === "line" ? (
-            <LineChart data={data}>
+            <LineChart data={showForecast ? chartDataWithForecast : data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" opacity={0.5} />
               <XAxis dataKey={xKey} {...axisProps} />
               <YAxis {...axisProps} />
               <Tooltip contentStyle={tooltipStyle} />
+              {showForecast && forecastData && (
+                <>
+                  <defs>
+                    <linearGradient id={`forecast-band-${yKey}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.2} />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <Area
+                    type="monotone"
+                    dataKey={`${yKey}_upper`}
+                    stroke="none"
+                    fill={`url(#forecast-band-${yKey})`}
+                    connectNulls={false}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey={`${yKey}_lower`}
+                    stroke="none"
+                    fill="transparent"
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey={`${yKey}_forecast`}
+                    stroke="#8b5cf6"
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                    dot={{ fill: "#8b5cf6", r: 3, strokeWidth: 0 }}
+                    connectNulls
+                  />
+                  <ReferenceLine
+                    x={String(data[data.length - 1]?.[xKey] ?? "")}
+                    stroke="#8b5cf6"
+                    strokeDasharray="3 3"
+                    opacity={0.4}
+                  />
+                </>
+              )}
               <Line
                 type="monotone"
                 dataKey={yKey}
@@ -114,6 +202,7 @@ export default function ChartCard({
                 strokeWidth={2.5}
                 dot={{ fill: color, r: 4, strokeWidth: 2, stroke: "#1a2332" }}
                 activeDot={{ r: 6, strokeWidth: 0 }}
+                connectNulls={false}
               />
             </LineChart>
           ) : chartType === "area" ? (

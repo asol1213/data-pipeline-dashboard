@@ -13,6 +13,7 @@ interface DataTableProps {
   columnTypes: Record<string, string>;
   anomalyIndices?: Record<string, number[]>;
   columnStats?: Record<string, ColumnStatInfo>;
+  calculatedColumns?: string[];
 }
 
 export default function DataTable({
@@ -21,6 +22,7 @@ export default function DataTable({
   columnTypes,
   anomalyIndices = {},
   columnStats = {},
+  calculatedColumns = [],
 }: DataTableProps) {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -119,6 +121,11 @@ export default function DataTable({
                   <div className="flex items-center gap-2">
                     <span>{h}</span>
                     {typeTag(columnTypes[h])}
+                    {calculatedColumns.includes(h) && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#f59e0b]/20 text-[#f59e0b] font-bold">
+                        Calculated
+                      </span>
+                    )}
                     {sortColumn === h && (
                       <span className="text-accent">
                         {sortDir === "asc" ? "\u2191" : "\u2193"}

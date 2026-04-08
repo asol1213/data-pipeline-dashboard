@@ -8,6 +8,8 @@ import KPICard from "@/components/KPICard";
 import DatasetDetailCharts from "./DatasetDetailCharts";
 import DatasetDetailTable from "./DatasetDetailTable";
 import CsvDownloadButton from "./CsvDownloadButton";
+import PdfReportButton from "./PdfReportButton";
+import CalculatedColumns from "./CalculatedColumns";
 
 export const dynamic = "force-dynamic";
 
@@ -119,6 +121,12 @@ export default async function DatasetDetailPage({
             <span className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${getQualityBgColor(quality.qualityScore)}`}>
               Quality: {quality.qualityScore}/100 ({getQualityLabel(quality.qualityScore)})
             </span>
+            <PdfReportButton
+              datasetName={dataset.name}
+              stats={stats}
+              insights={insights}
+              quality={quality}
+            />
             <CsvDownloadButton
               headers={dataset.headers}
               rows={dataset.rows}
@@ -337,9 +345,9 @@ export default async function DatasetDetailPage({
         chartColors={chartColors}
       />
 
-      {/* Data Table */}
+      {/* Calculated Columns & Data Table */}
       <div className="mt-8">
-        <DatasetDetailTable
+        <CalculatedColumns
           headers={dataset.headers}
           rows={dataset.rows}
           columnTypes={dataset.columnTypes}

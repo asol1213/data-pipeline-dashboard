@@ -1,4 +1,5 @@
 import type { DatasetStats, ColumnStats } from "./stats";
+import { linearRegression, forecast } from "./forecast";
 
 export interface Insight {
   type: "trend" | "anomaly" | "general" | "correlation";
@@ -79,6 +80,26 @@ export function analyzeDataset(
           data
         );
         if (corrInsight) insights.push(corrInsight);
+      }
+    }
+  }
+
+  // Forecast insights for columns with good linear fit
+  for (const col of numericColumns) {
+    const values = data.map((r) => Number(r[col.column])).filter((v) => !isNaN(v));
+    if (values.length >= 4) {
+      const reg = linearRegression(values);
+      if (reg.r2 > 0.6) {
+        const fc = forecast(values, 3);
+        if (fc.predicted.length > 0) {
+          const projected = fc.predicted[fc.predicted.length - 1];
+          insights.push({
+            type: "trend",
+            icon: "\ud83d\udd2e",
+            text: `Based on current trends, ${col.column.replace(/_/g, " ")} is projected to reach ${formatNum(Math.round(projected))} in 3 periods (R\u00b2=${reg.r2.toFixed(2)})`,
+            priority: 7,
+          });
+        }
       }
     }
   }
