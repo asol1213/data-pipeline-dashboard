@@ -257,6 +257,9 @@ export default function HeroPage() {
         </div>
       </section>
 
+      {/* Recent Activity */}
+      <RecentActivity />
+
       {/* Stats Bar */}
       <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-16">
         <div className="bg-bg-card border border-border-subtle rounded-xl p-6">

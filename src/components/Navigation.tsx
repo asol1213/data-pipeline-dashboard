@@ -156,6 +156,7 @@ export default function Navigation() {
               <div key={group.label} className="relative">
                 <button
                   onClick={() => toggleDropdown(group.label)}
+                  data-tour={`nav-${group.label.toLowerCase()}`}
                   className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isGroupActive(group)
                       ? "text-accent bg-accent/10"
@@ -208,7 +209,35 @@ export default function Navigation() {
               Upload CSV
             </Link>
 
-            <div className="ml-2">
+            {/* Ctrl+K hint */}
+            <button
+              onClick={() => {
+                document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
+              }}
+              className="ml-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border-subtle text-text-muted hover:text-text-primary hover:border-border-color transition-colors text-xs"
+              title="Search (Ctrl+K)"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <kbd className="font-mono text-[10px]">&#8984;K</kbd>
+            </button>
+
+            {/* Restart Tour */}
+            <button
+              onClick={() => {
+                const fn = (window as unknown as Record<string, unknown>).__datapipeStartTour;
+                if (typeof fn === "function") fn();
+              }}
+              className="ml-1 w-8 h-8 rounded-lg border border-border-subtle text-text-muted hover:text-text-primary hover:border-border-color transition-colors flex items-center justify-center"
+              title="Restart guided tour"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+
+            <div className="ml-1">
               <ScreenshotButton />
             </div>
             <div className="ml-1">
