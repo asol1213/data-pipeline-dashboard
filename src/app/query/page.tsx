@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { getSavedQueries, saveQuery, deleteSavedQuery, type SavedQuery } from "@/lib/saved-queries";
 
 interface QueryResult {
   columns: string[];
@@ -96,6 +97,26 @@ export default function QueryPage() {
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [datasets, setDatasets] = useState<DatasetMeta[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>("sales-q1-2026");
+  const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+
+  useEffect(() => {
+    setSavedQueries(getSavedQueries());
+  }, []);
+
+  const handleSaveQuery = useCallback(() => {
+    if (!saveName.trim() || !sql.trim()) return;
+    saveQuery(saveName.trim(), sql.trim());
+    setSavedQueries(getSavedQueries());
+    setSaveDialogOpen(false);
+    setSaveName("");
+  }, [saveName, sql]);
+
+  const handleDeleteSaved = useCallback((name: string) => {
+    deleteSavedQuery(name);
+    setSavedQueries(getSavedQueries());
+  }, []);
 
   useEffect(() => {
     fetch("/api/datasets")
@@ -233,29 +254,68 @@ export default function QueryPage() {
             </div>
             <div className="px-4 py-3 border-t border-border-subtle flex items-center justify-between">
               <div className="text-xs text-text-muted">
-                Supports: SELECT, WHERE, ORDER BY, LIMIT, GROUP BY, JOIN, LEFT JOIN, COUNT, SUM, AVG, MIN, MAX
+                SELECT, WHERE, ORDER BY, LIMIT, GROUP BY, HAVING, JOIN, CASE WHEN, IN, BETWEEN, UNION, window functions
               </div>
-              <button
-                onClick={runQuery}
-                disabled={loading || !sql.trim()}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Running...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Run Query
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSaveDialogOpen(true)}
+                  disabled={!sql.trim()}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border-subtle text-text-secondary text-sm font-medium hover:bg-bg-card-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                  Save
+                </button>
+                <button
+                  onClick={runQuery}
+                  disabled={loading || !sql.trim()}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Run Query
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
+            {/* Save dialog */}
+            {saveDialogOpen && (
+              <div className="px-4 py-3 border-t border-border-subtle bg-bg-card flex items-center gap-2">
+                <input
+                  type="text"
+                  value={saveName}
+                  onChange={(e) => setSaveName(e.target.value)}
+                  placeholder="Query name..."
+                  className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent"
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSaveQuery(); if (e.key === "Escape") setSaveDialogOpen(false); }}
+                  autoFocus
+                />
+                <button
+                  onClick={handleSaveQuery}
+                  disabled={!saveName.trim()}
+                  className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setSaveDialogOpen(false)}
+                  className="px-3 py-1.5 rounded-lg border border-border-subtle text-text-muted text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Error */}
@@ -384,6 +444,41 @@ export default function QueryPage() {
                 )}
               </div>
             </div>
+
+            {/* Saved Queries */}
+            {savedQueries.length > 0 && (
+              <div className="bg-bg-card rounded-xl border border-border-subtle overflow-hidden">
+                <div className="px-4 py-3 border-b border-border-subtle">
+                  <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
+                    Saved Queries
+                  </span>
+                </div>
+                <div className="divide-y divide-border-subtle/50">
+                  {savedQueries.map((sq) => (
+                    <div key={sq.name} className="flex items-center group">
+                      <button
+                        onClick={() => setSql(sq.sql)}
+                        className="flex-1 text-left px-4 py-3 hover:bg-bg-card-hover transition-colors min-w-0"
+                      >
+                        <div className="text-xs font-medium text-text-secondary group-hover:text-accent mb-1 truncate">
+                          {sq.name}
+                        </div>
+                        <div className="font-mono text-[11px] text-text-muted truncate">
+                          {sq.sql}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSaved(sq.name)}
+                        className="px-2 py-1 mr-2 text-text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                        title="Delete"
+                      >
+                        x
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* JOIN Example Queries */}
             <div className="bg-bg-card rounded-xl border border-border-subtle overflow-hidden">
