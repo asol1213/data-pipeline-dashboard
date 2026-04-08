@@ -686,6 +686,7 @@ export default function SpreadsheetTable({
                       onCancel={() => setEditingCell(null)}
                       onNavigate={handleNavigate}
                       highlight={matchHighlight ? (currentMatch ? "current" : "match") : undefined}
+                      headers={headers}
                     />
                   );
                 })}

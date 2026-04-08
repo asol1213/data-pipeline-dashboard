@@ -27,6 +27,11 @@ export interface ColumnAlias {
   alias: string;
 }
 
+export interface ExistsCondition {
+  negated: boolean;
+  subSQL: string;
+}
+
 export interface ParsedSQL {
   table: string;
   tableAlias: string;
@@ -37,6 +42,7 @@ export interface ParsedSQL {
   aggregates: AggregateFunc[];
   groupBy: string[];
   selectAll: boolean;
+  distinct: boolean;
   join: JoinClause | null;
   joins: JoinClause[];
   having: HavingCondition[];
@@ -45,6 +51,7 @@ export interface ParsedSQL {
   windowFunctions: WindowFunction[];
   union: UnionClause | null;
   subqueries: SubqueryCondition[];
+  existsConditions: ExistsCondition[];
 }
 
 export interface HavingCondition {
@@ -516,12 +523,17 @@ export function parseSQL(sql: string): ParsedSQL {
     }
   }
 
-  // Extract SELECT columns (between SELECT and FROM)
+  // Extract SELECT columns (between SELECT and FROM), handling DISTINCT
   const selectMatch = normalized.match(/^SELECT\s+(.*?)\s+FROM\s/i);
   if (!selectMatch) {
     throw new SQLError("Invalid SELECT syntax");
   }
-  const selectPart = selectMatch[1].trim();
+  let selectPart = selectMatch[1].trim();
+  let distinct = false;
+  if (/^DISTINCT\s+/i.test(selectPart)) {
+    distinct = true;
+    selectPart = selectPart.replace(/^DISTINCT\s+/i, "").trim();
+  }
 
   // Parse aggregates, columns, CASE WHEN, window functions, aliases
   const aggregates: AggregateFunc[] = [];
@@ -596,6 +608,7 @@ export function parseSQL(sql: string): ParsedSQL {
   // Extract WHERE clause
   const where: WhereCondition[] = [];
   const subqueries: SubqueryCondition[] = [];
+  const existsConditions: ExistsCondition[] = [];
   const whereMatch = normalized.match(/\bWHERE\s+(.*?)(?:\s+GROUP\s+BY\b|\s+HAVING\b|\s+ORDER\s+BY\b|\s+LIMIT\b|\s+UNION\b|$)/i);
   if (whereMatch) {
     const wherePart = whereMatch[1].trim();
@@ -603,6 +616,16 @@ export function parseSQL(sql: string): ParsedSQL {
     const conditions = splitWhereByAnd(wherePart);
     for (const cond of conditions) {
       const trimmedCond = cond.trim();
+
+      // Check for EXISTS (SELECT ...) / NOT EXISTS (SELECT ...)
+      const existsMatch = trimmedCond.match(/^(NOT\s+)?EXISTS\s*\(\s*(SELECT\s+.*)\s*\)$/i);
+      if (existsMatch) {
+        existsConditions.push({
+          negated: !!existsMatch[1],
+          subSQL: existsMatch[2].trim(),
+        });
+        continue;
+      }
 
       // Check for subquery: column [NOT] IN (SELECT ...)
       const subqMatch = trimmedCond.match(/^([\w.]+)\s+(NOT\s+)?IN\s*\(\s*(SELECT\s+.*)\s*\)$/i);
@@ -668,8 +691,8 @@ export function parseSQL(sql: string): ParsedSQL {
 
   return {
     table, tableAlias, columns, where, orderBy, limit, aggregates, groupBy,
-    selectAll, join, joins, having, caseWhens, columnAliases, windowFunctions,
-    union, subqueries,
+    selectAll, distinct, join, joins, having, caseWhens, columnAliases, windowFunctions,
+    union, subqueries, existsConditions,
   };
 }
 
@@ -899,7 +922,8 @@ function executeSingleQuery(
       // Check if it's a valid expression (function call, arithmetic, etc.)
       // A simple identifier with no parens, no dots, no operators is just a plain column name
       const isPlainIdent = /^[\w]+$/.test(col) && !isScalarFunction(col);
-      if (isPlainIdent) {
+      const isNumericLiteral = /^-?\d+(\.\d+)?$/.test(col);
+      if (isPlainIdent && !isNumericLiteral) {
         // It's a plain column name that doesn't exist
         throw new SQLError(
           `Column '${col}' does not exist in '${parsed.table}'. Available columns: ${headers.join(", ")}`
@@ -907,6 +931,21 @@ function executeSingleQuery(
       }
       exprColumns.push(col);
     }
+  }
+
+  // Helper: resolve alias-qualified column names for this table
+  const localAlias = parsed.tableAlias || parsed.table;
+  const resolveLocalCol = (col: string): string => {
+    if (col.includes(".")) {
+      const [prefix, bare] = col.split(".", 2);
+      if (prefix === localAlias && headers.includes(bare)) return bare;
+    }
+    return col;
+  };
+
+  // Resolve alias-prefixed WHERE columns
+  for (const cond of parsed.where) {
+    cond.column = resolveLocalCol(cond.column);
   }
 
   // Validate real columns used in WHERE, ORDER BY, GROUP BY, aggregates
@@ -956,6 +995,40 @@ function executeSingleQuery(
       const cellValue = String(row[sq.column] ?? "");
       const inSet = values.has(cellValue);
       if (sq.negated ? inSet : !inSet) return false;
+    }
+
+    // EXISTS / NOT EXISTS conditions
+    for (const ec of parsed.existsConditions) {
+      // Replace correlated column references (e.g., t.Customer_ID = c.Customer_ID)
+      // by injecting a WHERE condition that matches the current row's values
+      let subSQL = ec.subSQL;
+      // Find correlated references: detect pattern WHERE alias.col = outerAlias.col
+      // We substitute outer table references with the current row's actual values
+      const outerAlias = parsed.tableAlias || parsed.table;
+      // Replace references like outerAlias.column = ... with the actual value
+      const outerRefRegex = new RegExp(`([\\w.]+)\\s*(=|!=|>|<|>=|<=)\\s*${escapeRegex(outerAlias)}\\.(\\w+)`, "gi");
+      subSQL = subSQL.replace(outerRefRegex, (_match, left, op, outerCol) => {
+        const val = row[outerCol] ?? "";
+        const quoted = isNaN(Number(val)) || val === "" ? `'${val}'` : val;
+        return `${left} ${op} ${quoted}`;
+      });
+      // Also handle the reverse: outerAlias.col = innerExpr
+      const outerRefRegex2 = new RegExp(`${escapeRegex(outerAlias)}\\.(\\w+)\\s*(=|!=|>|<|>=|<=)\\s*([\\w.]+)`, "gi");
+      subSQL = subSQL.replace(outerRefRegex2, (_match, outerCol, op, right) => {
+        const val = row[outerCol] ?? "";
+        const quoted = isNaN(Number(val)) || val === "" ? `'${val}'` : val;
+        return `${quoted} ${op} ${right}`;
+      });
+
+      try {
+        const subParsed = parseSQL(subSQL);
+        const subResult = executeSingleQuery(subParsed, datasets, startTime);
+        const hasRows = subResult.rows.length > 0;
+        if (ec.negated ? hasRows : !hasRows) return false;
+      } catch {
+        // If subquery fails, treat as no rows
+        if (!ec.negated) return false;
+      }
     }
 
     return true;
@@ -1085,6 +1158,17 @@ function executeSingleQuery(
     for (const wf of parsed.windowFunctions) {
       if (!resultColumns.includes(wf.alias)) resultColumns.push(wf.alias);
     }
+  }
+
+  // Apply DISTINCT
+  if (parsed.distinct) {
+    const seen = new Set<string>();
+    resultRows = resultRows.filter(row => {
+      const key = resultColumns.map(c => String(row[c] ?? "")).join("|||");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   return {
@@ -1353,7 +1437,7 @@ function executeJoinQuery(
     if (!resultColumns.includes(cw.alias)) resultColumns.push(cw.alias);
   }
 
-  const resultRows = joinedRows.map((row) => {
+  let resultRows = joinedRows.map((row) => {
     const result: Record<string, string | number> = {};
     for (const col of resultColumns) {
       result[col] = row[col] ?? "";
@@ -1364,6 +1448,17 @@ function executeJoinQuery(
     }
     return result;
   });
+
+  // Apply DISTINCT
+  if (parsed.distinct) {
+    const seen = new Set<string>();
+    resultRows = resultRows.filter(row => {
+      const key = resultColumns.map(c => String(row[c] ?? "")).join("|||");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
 
   return {
     columns: resultColumns,

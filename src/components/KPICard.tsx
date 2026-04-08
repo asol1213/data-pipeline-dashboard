@@ -1,4 +1,5 @@
 import { formatNumber, autoFormat } from "@/lib/format";
+import Sparkline from "./Sparkline";
 
 interface KPICardProps {
   label: string;
@@ -6,6 +7,7 @@ interface KPICardProps {
   subtitle?: string;
   trend?: "up" | "down" | "neutral";
   icon?: React.ReactNode;
+  sparklineData?: number[];
 }
 
 export default function KPICard({
@@ -14,6 +16,7 @@ export default function KPICard({
   subtitle,
   trend,
   icon,
+  sparklineData,
 }: KPICardProps) {
   // Auto-format numeric KPI values based on the label
   const displayValue = (() => {
@@ -54,6 +57,16 @@ export default function KPICard({
               {trendArrow && <span className="text-sm font-bold">{trendArrow}</span>}
               {subtitle}
             </p>
+          )}
+          {sparklineData && sparklineData.length >= 2 && (
+            <div className="mt-3">
+              <Sparkline
+                data={sparklineData}
+                width={120}
+                height={24}
+                color={trend === "up" ? "#22c55e" : trend === "down" ? "#ef4444" : "#3b82f6"}
+              />
+            </div>
           )}
         </div>
         {icon && (

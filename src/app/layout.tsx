@@ -123,6 +123,28 @@ export default function RootLayout({
                 >
                   Connect
                 </Link>
+                <div className="relative group">
+                  <Link
+                    href="/planning"
+                    className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                  >
+                    Planning
+                  </Link>
+                  <div className="absolute left-0 top-full mt-1 hidden group-hover:block bg-bg-card border border-border-subtle rounded-lg shadow-xl py-1 min-w-[160px] z-50">
+                    <Link href="/planning" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
+                      Scenarios
+                    </Link>
+                    <Link href="/planning/budget" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
+                      Budget
+                    </Link>
+                    <Link href="/planning/variance" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
+                      Variance
+                    </Link>
+                    <Link href="/planning/goal-seek" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
+                      Goal Seek
+                    </Link>
+                  </div>
+                </div>
                 <Link
                   href="/chat"
                   className="text-sm text-text-secondary hover:text-text-primary transition-colors"
