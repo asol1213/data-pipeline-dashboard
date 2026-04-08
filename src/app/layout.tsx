@@ -130,6 +130,12 @@ export default function RootLayout({
                   AI Chat
                 </Link>
                 <Link
+                  href="/demo"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Demo
+                </Link>
+                <Link
                   href="/upload"
                   className="text-sm px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors"
                 >
