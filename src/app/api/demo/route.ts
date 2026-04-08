@@ -1,23 +1,25 @@
 import { getAllDatasets, saveDataset, deleteDataset } from "@/lib/store";
 import { generateRevolutData, generateSiemensData } from "@/lib/demo-data";
+import { generateDeloitteData } from "@/lib/demo-deloitte";
 import type { DemoCompany } from "@/lib/demo-data";
 import type { DatasetFull } from "@/lib/store";
 
 const generators: Record<string, () => DemoCompany> = {
   revolut: generateRevolutData,
   siemens: generateSiemensData,
+  deloitte: generateDeloitteData,
 };
 
-// Prefix mapping for each company's demo data
 const DEMO_PREFIXES: Record<string, string> = {
   revolut: "rev_",
   siemens: "si_",
+  deloitte: "dl_",
 };
 
 const companyMeta = [
-  { id: "revolut", name: "Revolut", industry: "FinTech", datasetCount: 7, description: "Digital banking: payments, trading, insurance. ~EUR 50M revenue, 7 interconnected tables." },
-  { id: "siemens", name: "Siemens", industry: "Industrial Conglomerate", datasetCount: 7, description: "Industrial technology division: automation, infrastructure, mobility. ~EUR 500M revenue, 7 tables." },
-  { id: "deloitte", name: "Deloitte", industry: "Professional Services", datasetCount: 0, description: "Coming soon: Consulting engagements, audit, tax, and advisory datasets." },
+  { id: "revolut", name: "Revolut", industry: "FinTech", datasetCount: 7, description: "Digital banking: payments, trading, insurance. ~€50M revenue, 7 interconnected tables, 1500+ rows." },
+  { id: "siemens", name: "Siemens", industry: "Industrial Conglomerate", datasetCount: 7, description: "Industrial technology division: automation, infrastructure, mobility. ~€500M revenue, 7 tables, 1000+ rows." },
+  { id: "deloitte", name: "Deloitte DACH", industry: "Professional Services", datasetCount: 8, description: "Regional practice: 5 service lines, 250 employees, 100 clients. Engagements, utilization, pipeline, P&L, training, expenses. 1500+ rows." },
 ];
 
 export async function GET() {
