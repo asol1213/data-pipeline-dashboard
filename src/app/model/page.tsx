@@ -93,6 +93,8 @@ export default function ModelPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  // Zoom state
+  const [zoom, setZoom] = useState(1);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -441,6 +443,14 @@ export default function ModelPage() {
         </div>
       </div>
 
+      {/* Zoom Controls */}
+      <div className="flex items-center gap-2 mb-2">
+        <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} className="px-3 py-1 text-sm bg-bg-card border border-border-subtle rounded-lg hover:bg-border-subtle transition-colors">−</button>
+        <span className="text-xs text-text-muted w-16 text-center">{Math.round(zoom * 100)}%</span>
+        <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="px-3 py-1 text-sm bg-bg-card border border-border-subtle rounded-lg hover:bg-border-subtle transition-colors">+</button>
+        <button onClick={() => setZoom(1)} className="px-3 py-1 text-xs text-text-muted hover:text-text-primary transition-colors">Reset</button>
+      </div>
+
       {/* Canvas */}
       <div
         ref={canvasRef}
@@ -449,9 +459,15 @@ export default function ModelPage() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onWheel={(e) => {
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            setZoom(z => Math.max(0.3, Math.min(2, z + (e.deltaY > 0 ? -0.05 : 0.05))));
+          }
+        }}
       >
         <div
-          style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT, position: "relative" }}
+          style={{ width: CANVAS_WIDTH * zoom, height: CANVAS_HEIGHT * zoom, position: "relative", transform: `scale(${zoom})`, transformOrigin: "0 0" }}
         >
           {/* SVG relationship lines */}
           <svg
