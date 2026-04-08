@@ -343,6 +343,7 @@ export default async function DatasetDetailPage({
         labelCol={labelCol}
         numericCols={numericCols}
         chartColors={chartColors}
+        datasetId={id}
       />
 
       {/* Calculated Columns & Data Table */}

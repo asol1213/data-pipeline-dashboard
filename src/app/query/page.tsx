@@ -233,7 +233,7 @@ export default function QueryPage() {
             </div>
             <div className="px-4 py-3 border-t border-border-subtle flex items-center justify-between">
               <div className="text-xs text-text-muted">
-                Supports: SELECT, WHERE, ORDER BY, LIMIT, GROUP BY, COUNT, SUM, AVG, MIN, MAX
+                Supports: SELECT, WHERE, ORDER BY, LIMIT, GROUP BY, JOIN, LEFT JOIN, COUNT, SUM, AVG, MIN, MAX
               </div>
               <button
                 onClick={runQuery}
@@ -382,6 +382,39 @@ export default function QueryPage() {
                     Loading datasets...
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* JOIN Example Queries */}
+            <div className="bg-bg-card rounded-xl border border-border-subtle overflow-hidden">
+              <div className="px-4 py-3 border-b border-border-subtle">
+                <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
+                  JOIN Queries
+                </span>
+              </div>
+              <div className="divide-y divide-border-subtle/50">
+                <button
+                  onClick={() => setSql("SELECT p.Month, p.Revenue, s.MRR FROM pnl-2025 p JOIN saas-kpis s ON p.Month = s.Month")}
+                  className="w-full text-left px-4 py-3 hover:bg-bg-card-hover transition-colors group"
+                >
+                  <div className="text-xs font-medium text-text-secondary group-hover:text-accent mb-1">
+                    P&L + SaaS KPIs (JOIN)
+                  </div>
+                  <div className="font-mono text-[11px] text-text-muted truncate">
+                    SELECT p.Month, p.Revenue, s.MRR FROM pnl-2025 p JOIN saas-kpis s ON p.Month = s.Month
+                  </div>
+                </button>
+                <button
+                  onClick={() => setSql("SELECT p.Revenue, f.Forecast FROM pnl-2025 p JOIN revenue-forecast f ON p.Month = f.Month")}
+                  className="w-full text-left px-4 py-3 hover:bg-bg-card-hover transition-colors group"
+                >
+                  <div className="text-xs font-medium text-text-secondary group-hover:text-accent mb-1">
+                    Revenue vs Forecast (JOIN)
+                  </div>
+                  <div className="font-mono text-[11px] text-text-muted truncate">
+                    SELECT p.Revenue, f.Forecast FROM pnl-2025 p JOIN revenue-forecast f ON p.Month = f.Month
+                  </div>
+                </button>
               </div>
             </div>
 
