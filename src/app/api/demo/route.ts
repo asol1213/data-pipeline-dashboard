@@ -1,6 +1,5 @@
 import { getAllDatasets, saveDataset, deleteDataset } from "@/lib/store";
-import { generateRevolutData, generateSiemensData } from "@/lib/demo-data";
-import { generateDeloitteData } from "@/lib/demo-deloitte";
+import { generateRevolutData, generateSiemensData, generateDeloitteData } from "@/lib/demo-data";
 import type { DemoCompany } from "@/lib/demo-data";
 import type { DatasetFull } from "@/lib/store";
 
