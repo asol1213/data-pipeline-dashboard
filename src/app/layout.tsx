@@ -100,6 +100,12 @@ export default function RootLayout({
                   Pivot
                 </Link>
                 <Link
+                  href="/spreadsheet"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Spreadsheet
+                </Link>
+                <Link
                   href="/builder"
                   className="text-sm text-text-secondary hover:text-text-primary transition-colors"
                 >

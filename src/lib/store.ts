@@ -77,6 +77,43 @@ export function saveDataset(dataset: DatasetFull): void {
   }
 }
 
+export function updateDatasetRows(
+  id: string,
+  rows: Record<string, string>[]
+): boolean {
+  ensureDataDir();
+  const datasets = getAllDatasets();
+  const index = datasets.findIndex((d) => d.id === id);
+  if (index === -1) return false;
+
+  try {
+    // Update row count in metadata
+    datasets[index].rowCount = rows.length;
+
+    // Update headers if new columns were added
+    if (rows.length > 0) {
+      const allKeys = new Set<string>();
+      for (const row of rows) {
+        for (const key of Object.keys(row)) {
+          allKeys.add(key);
+        }
+      }
+      datasets[index].headers = Array.from(allKeys);
+      datasets[index].columnCount = allKeys.size;
+    }
+
+    fs.writeFileSync(DATASETS_FILE, JSON.stringify(datasets, null, 2), "utf-8");
+    fs.writeFileSync(
+      path.join(DATA_DIR, `${id}.json`),
+      JSON.stringify(rows),
+      "utf-8"
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function deleteDataset(id: string): boolean {
   ensureDataDir();
   const datasets = getAllDatasets();
