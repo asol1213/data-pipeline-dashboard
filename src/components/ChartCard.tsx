@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -32,6 +32,7 @@ interface ChartCardProps {
   yKey: string;
   color?: string;
   defaultType?: ChartType;
+  onDrillDown?: (label: string, column: string) => void;
 }
 
 export default function ChartCard({
@@ -41,6 +42,7 @@ export default function ChartCard({
   yKey,
   color = "#3b82f6",
   defaultType = "bar",
+  onDrillDown,
 }: ChartCardProps) {
   const [chartType, setChartType] = useState<ChartType>(defaultType);
   const [showForecast, setShowForecast] = useState(false);
@@ -77,6 +79,27 @@ export default function ChartCard({
     return [...existing, ...forecastData];
   }, [data, forecastData, yKey]);
 
+  const handleBarClick = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (barData: any) => {
+      if (onDrillDown && barData?.activePayload?.[0]?.payload) {
+        const label = String(barData.activePayload[0].payload[xKey]);
+        onDrillDown(label, xKey);
+      }
+    },
+    [onDrillDown, xKey]
+  );
+
+  const handlePieClick = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (entry: any) => {
+      if (onDrillDown && entry?.name) {
+        onDrillDown(String(entry.name), xKey);
+      }
+    },
+    [onDrillDown, xKey]
+  );
+
   const chartTypes: { key: ChartType; label: string }[] = [
     { key: "bar", label: "Bar" },
     { key: "line", label: "Line" },
@@ -103,12 +126,19 @@ export default function ChartCard({
     fill: PRO_PALETTE[i % PRO_PALETTE.length],
   }));
 
+  const cursorStyle = onDrillDown ? { cursor: "pointer" } : {};
+
   return (
     <div className="bg-bg-card rounded-xl border border-border-subtle p-6 shadow-lg shadow-black/5">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
-          <p className="text-[11px] text-text-muted mt-0.5">Column: {yKey}</p>
+          <p className="text-[11px] text-text-muted mt-0.5">
+            Column: {yKey}
+            {onDrillDown && (
+              <span className="ml-2 text-accent">Click to drill down</span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {chartType === "line" && (
@@ -140,10 +170,10 @@ export default function ChartCard({
           </div>
         </div>
       </div>
-      <div style={{ width: "100%", minHeight: 300 }}>
+      <div style={{ width: "100%", minHeight: 300, ...cursorStyle }}>
         <ResponsiveContainer width="100%" height={300}>
           {chartType === "bar" ? (
-            <BarChart data={data}>
+            <BarChart data={data} onClick={handleBarClick}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" opacity={0.5} />
               <XAxis dataKey={xKey} {...axisProps} />
               <YAxis {...axisProps} />
@@ -151,7 +181,7 @@ export default function ChartCard({
               <Bar dataKey={yKey} fill={color} radius={[6, 6, 0, 0]} />
             </BarChart>
           ) : chartType === "line" ? (
-            <LineChart data={showForecast ? chartDataWithForecast : data}>
+            <LineChart data={showForecast ? chartDataWithForecast : data} onClick={handleBarClick}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" opacity={0.5} />
               <XAxis dataKey={xKey} {...axisProps} />
               <YAxis {...axisProps} />
@@ -206,7 +236,7 @@ export default function ChartCard({
               />
             </LineChart>
           ) : chartType === "area" ? (
-            <AreaChart data={data}>
+            <AreaChart data={data} onClick={handleBarClick}>
               <defs>
                 <linearGradient id={`gradient-${yKey}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={color} stopOpacity={0.4} />
@@ -242,6 +272,7 @@ export default function ChartCard({
                 dataKey="value"
                 nameKey="name"
                 strokeWidth={0}
+                onClick={handlePieClick}
               >
                 {pieData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.fill} />

@@ -7,6 +7,8 @@ interface ColumnStatInfo {
   stddev: number;
 }
 
+export type ConditionalFormattingMode = "heatmap" | "databars" | "none";
+
 interface DataTableProps {
   headers: string[];
   rows: Record<string, string>[];
@@ -14,6 +16,56 @@ interface DataTableProps {
   anomalyIndices?: Record<string, number[]>;
   columnStats?: Record<string, ColumnStatInfo>;
   calculatedColumns?: string[];
+  conditionalFormatting?: ConditionalFormattingMode;
+  compact?: boolean;
+}
+
+/**
+ * Compute the heatmap background color for a numeric value.
+ * Low = red/orange, medium = yellow, high = green. Uses 0.15 opacity.
+ */
+export function getHeatmapColor(value: number, min: number, max: number): string {
+  if (max === min) return "rgba(250, 204, 21, 0.15)"; // yellow if all same
+  const ratio = (value - min) / (max - min);
+  // Interpolate: red (0) -> yellow (0.5) -> green (1)
+  let r: number, g: number, b: number;
+  if (ratio <= 0.5) {
+    // red to yellow
+    const t = ratio / 0.5;
+    r = 239;
+    g = Math.round(68 + (204 - 68) * t);
+    b = Math.round(68 * (1 - t) + 21 * t);
+  } else {
+    // yellow to green
+    const t = (ratio - 0.5) / 0.5;
+    r = Math.round(250 - (250 - 34) * t);
+    g = Math.round(204 + (197 - 204) * t);
+    b = Math.round(21 + (94 - 21) * t);
+  }
+  return `rgba(${r}, ${g}, ${b}, 0.15)`;
+}
+
+/**
+ * Compute data bar width as a percentage of the max value.
+ */
+export function getDataBarWidth(value: number, min: number, max: number): number {
+  if (max === min) {
+    // All values identical: show full bar if non-zero, empty if zero
+    return value === 0 ? 0 : 100;
+  }
+  // Handle negative ranges: bar from 0 to value proportion
+  const absMax = Math.max(Math.abs(min), Math.abs(max));
+  if (absMax === 0) return 0;
+  return Math.min(100, (Math.abs(value) / absMax) * 100);
+}
+
+/**
+ * Determine sign-based CSS class for a value.
+ */
+export function getSignClass(value: number): string {
+  if (value < 0) return "cell-negative";
+  if (value > 0) return "cell-positive";
+  return "";
 }
 
 export default function DataTable({
@@ -23,12 +75,44 @@ export default function DataTable({
   anomalyIndices = {},
   columnStats = {},
   calculatedColumns = [],
+  conditionalFormatting: externalFormatting,
+  compact = false,
 }: DataTableProps) {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
-  const pageSize = 25;
+  const [formatting, setFormatting] = useState<ConditionalFormattingMode>(
+    externalFormatting ?? "heatmap"
+  );
+  const pageSize = compact ? 10 : 25;
+
+  const numericColumns = useMemo(
+    () => headers.filter((h) => columnTypes[h] === "number"),
+    [headers, columnTypes]
+  );
+
+  // Compute min/max for each numeric column
+  const columnMinMax = useMemo(() => {
+    const result: Record<string, { min: number; max: number }> = {};
+    for (const col of numericColumns) {
+      let min = Infinity;
+      let max = -Infinity;
+      for (const row of rows) {
+        const val = Number(row[col]);
+        if (!isNaN(val)) {
+          if (val < min) min = val;
+          if (val > max) max = val;
+        }
+      }
+      if (min === Infinity) {
+        min = 0;
+        max = 0;
+      }
+      result[col] = { min, max };
+    }
+    return result;
+  }, [rows, numericColumns]);
 
   const filteredRows = useMemo(() => {
     if (!search) return rows;
@@ -88,25 +172,82 @@ export default function DataTable({
     );
   };
 
+  const formatModes: { key: ConditionalFormattingMode; label: string }[] = [
+    { key: "heatmap", label: "Heatmap" },
+    { key: "databars", label: "Data Bars" },
+    { key: "none", label: "None" },
+  ];
+
+  const getCellStyle = (
+    col: string,
+    value: string
+  ): { style?: React.CSSProperties; className?: string; barWidth?: number } => {
+    if (columnTypes[col] !== "number" || formatting === "none") return {};
+    const numVal = Number(value);
+    if (isNaN(numVal)) return {};
+
+    const mm = columnMinMax[col];
+    if (!mm) return {};
+
+    if (formatting === "heatmap") {
+      return {
+        style: { backgroundColor: getHeatmapColor(numVal, mm.min, mm.max) },
+        className: getSignClass(numVal),
+      };
+    }
+
+    if (formatting === "databars") {
+      return {
+        className: `cell-databar ${getSignClass(numVal)}`,
+        barWidth: getDataBarWidth(numVal, mm.min, mm.max),
+      };
+    }
+
+    return {};
+  };
+
   return (
     <div className="bg-bg-card rounded-xl border border-border-subtle overflow-hidden">
-      <div className="p-4 border-b border-border-subtle flex items-center justify-between gap-4">
+      <div className="p-4 border-b border-border-subtle flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-medium text-text-secondary">Data Table</h3>
           <span className="text-xs text-text-muted">
             {sortedRows.length} rows
           </span>
         </div>
-        <input
-          type="text"
-          placeholder="Search..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(0);
-          }}
-          className="bg-bg-input border border-border-subtle rounded-lg px-3 py-1.5 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent w-64"
-        />
+        <div className="flex items-center gap-3">
+          {/* Conditional formatting toggle */}
+          {numericColumns.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-text-muted">Formatting:</span>
+              <div className="flex gap-0.5 bg-bg-secondary rounded-lg p-0.5">
+                {formatModes.map((fm) => (
+                  <button
+                    key={fm.key}
+                    onClick={() => setFormatting(fm.key)}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                      formatting === fm.key
+                        ? "bg-accent text-white shadow-sm"
+                        : "text-text-muted hover:text-text-secondary"
+                    }`}
+                  >
+                    {fm.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <input
+            type="text"
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
+            className="bg-bg-input border border-border-subtle rounded-lg px-3 py-1.5 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent w-64"
+          />
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -120,7 +261,7 @@ export default function DataTable({
                 >
                   <div className="flex items-center gap-2">
                     <span>{h}</span>
-                    {typeTag(columnTypes[h])}
+                    {!compact && typeTag(columnTypes[h])}
                     {calculatedColumns.includes(h) && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#f59e0b]/20 text-[#f59e0b] font-bold">
                         Calculated
@@ -152,18 +293,35 @@ export default function DataTable({
                       const dev = Math.abs(val - columnStats[h].mean) / columnStats[h].stddev;
                       deviations = dev.toFixed(1);
                     }
+
+                    const cellFormat = getCellStyle(h, row[h]);
+                    const combinedClassName = [
+                      "px-4 py-2.5",
+                      anomaly ? "text-danger font-medium" : "text-text-primary",
+                      cellFormat.className ?? "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+
+                    const combinedStyle: React.CSSProperties = {
+                      ...(anomaly ? { backgroundColor: "rgba(239, 68, 68, 0.15)" } : {}),
+                      ...(cellFormat.style ?? {}),
+                    };
+
                     return (
                       <td
                         key={h}
-                        className={`px-4 py-2.5 ${
-                          anomaly
-                            ? "text-danger font-medium"
-                            : "text-text-primary"
-                        }`}
-                        style={anomaly ? { backgroundColor: "rgba(239, 68, 68, 0.15)" } : undefined}
+                        className={combinedClassName}
+                        style={Object.keys(combinedStyle).length > 0 ? combinedStyle : undefined}
                         title={anomaly && deviations ? `Anomaly: ${deviations} standard deviations from mean` : anomaly ? "Anomaly: >2 std deviations from mean" : undefined}
                       >
-                        {row[h]}
+                        {cellFormat.barWidth !== undefined && (
+                          <span
+                            className="cell-databar-fill"
+                            style={{ width: `${cellFormat.barWidth}%` }}
+                          />
+                        )}
+                        <span style={{ position: "relative", zIndex: 1 }}>{row[h]}</span>
                         {anomaly && (
                           <span className="ml-1.5 inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-danger/20 text-danger">
                             {deviations ? `${deviations}\u03C3` : "!!"}

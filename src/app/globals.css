@@ -120,6 +120,21 @@ html.light .dashboard-header {
   background: var(--text-muted);
 }
 
+/* Conditional formatting */
+.cell-positive { color: #22c55e; }
+.cell-negative { color: #ef4444; background: rgba(239, 68, 68, 0.08); }
+.cell-databar { position: relative; }
+.cell-databar-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(59, 130, 246, 0.12); border-radius: 4px; }
+
+/* Drill-down panel */
+.drilldown-enter {
+  animation: drilldown-slide-in 0.25s ease-out;
+}
+@keyframes drilldown-slide-in {
+  from { opacity: 0; transform: translateY(-8px); max-height: 0; }
+  to { opacity: 1; transform: translateY(0); max-height: 600px; }
+}
+
 /* Table styles */
 table {
   border-collapse: collapse;

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import ChartCard from "@/components/ChartCard";
+import DrillDownPanel from "@/components/DrillDownPanel";
 
 interface DatasetDetailChartsProps {
   chartData: Record<string, string | number>[];
@@ -9,6 +10,9 @@ interface DatasetDetailChartsProps {
   numericCols: string[];
   chartColors: string[];
   datasetId?: string;
+  allRows?: Record<string, string>[];
+  allHeaders?: string[];
+  columnTypes?: Record<string, string>;
 }
 
 function EmbedModal({ datasetId, col, onClose }: { datasetId: string; col: string; onClose: () => void }) {
@@ -62,14 +66,45 @@ function EmbedModal({ datasetId, col, onClose }: { datasetId: string; col: strin
   );
 }
 
+interface DrillDownState {
+  chartCol: string;
+  label: string;
+  filterColumn: string;
+}
+
 export default function DatasetDetailCharts({
   chartData,
   labelCol,
   numericCols,
   chartColors,
   datasetId,
+  allRows,
+  allHeaders,
+  columnTypes,
 }: DatasetDetailChartsProps) {
   const [embedCol, setEmbedCol] = useState<string | null>(null);
+  const [drillDown, setDrillDown] = useState<DrillDownState | null>(null);
+
+  const handleDrillDown = useCallback(
+    (chartCol: string) => (label: string, filterColumn: string) => {
+      setDrillDown({ chartCol, label, filterColumn });
+    },
+    []
+  );
+
+  const handleCloseDrillDown = useCallback(() => {
+    setDrillDown(null);
+  }, []);
+
+  const drillDownRows = useMemo(() => {
+    if (!drillDown || !allRows) return [];
+    return allRows.filter(
+      (row) => row[drillDown.filterColumn] === drillDown.label
+    );
+  }, [drillDown, allRows]);
+
+  const headers = allHeaders ?? [];
+  const colTypes = columnTypes ?? {};
 
   return (
     <>
@@ -82,6 +117,7 @@ export default function DatasetDetailCharts({
               xKey={labelCol}
               yKey={col}
               color={chartColors[i % chartColors.length]}
+              onDrillDown={allRows ? handleDrillDown(col) : undefined}
             />
             {datasetId && (
               <button
@@ -91,6 +127,16 @@ export default function DatasetDetailCharts({
               >
                 Embed
               </button>
+            )}
+            {drillDown && drillDown.chartCol === col && allRows && (
+              <DrillDownPanel
+                label={drillDown.label}
+                column={drillDown.filterColumn}
+                rows={drillDownRows}
+                headers={headers}
+                columnTypes={colTypes}
+                onClose={handleCloseDrillDown}
+              />
             )}
           </div>
         ))}
