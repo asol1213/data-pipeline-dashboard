@@ -37,6 +37,10 @@ yarn-error.log*
 # uploaded dataset data (generated at runtime)
 src/data/*.json
 !src/data/datasets.json
+!src/data/regions.json
+!src/data/products.json
+!src/data/customers.json
+!src/data/sales_transactions.json
 
 # vercel
 .vercel

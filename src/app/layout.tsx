@@ -88,6 +88,12 @@ export default function RootLayout({
                   SQL Query
                 </Link>
                 <Link
+                  href="/dax"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  DAX
+                </Link>
+                <Link
                   href="/pivot"
                   className="text-sm text-text-secondary hover:text-text-primary transition-colors"
                 >

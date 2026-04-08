@@ -170,5 +170,119 @@
       "Pipeline_Value": "number",
       "Win_Rate_%": "number"
     }
+  },
+  {
+    "id": "regions",
+    "name": "Regions (Dimension)",
+    "fileName": "regions.csv",
+    "uploadedAt": "2025-01-01T00:00:00.000Z",
+    "rowCount": 5,
+    "columnCount": 5,
+    "headers": [
+      "Region_ID",
+      "Region_Name",
+      "Head_of_Region",
+      "Target_Revenue",
+      "Currency"
+    ],
+    "columnTypes": {
+      "Region_ID": "string",
+      "Region_Name": "string",
+      "Head_of_Region": "string",
+      "Target_Revenue": "number",
+      "Currency": "string"
+    }
+  },
+  {
+    "id": "products",
+    "name": "Products (Dimension)",
+    "fileName": "products.csv",
+    "uploadedAt": "2025-01-01T00:00:00.000Z",
+    "rowCount": 20,
+    "columnCount": 6,
+    "headers": [
+      "Product_ID",
+      "Product_Name",
+      "Category",
+      "Sub_Category",
+      "Launch_Date",
+      "Price_Tier"
+    ],
+    "columnTypes": {
+      "Product_ID": "string",
+      "Product_Name": "string",
+      "Category": "string",
+      "Sub_Category": "string",
+      "Launch_Date": "string",
+      "Price_Tier": "string"
+    }
+  },
+  {
+    "id": "customers",
+    "name": "Customers (Dimension)",
+    "fileName": "customers.csv",
+    "uploadedAt": "2025-01-01T00:00:00.000Z",
+    "rowCount": 50,
+    "columnCount": 8,
+    "headers": [
+      "Customer_ID",
+      "Company_Name",
+      "Industry",
+      "Country",
+      "Segment",
+      "Account_Manager",
+      "Contract_Start",
+      "Annual_Contract_Value"
+    ],
+    "columnTypes": {
+      "Customer_ID": "string",
+      "Company_Name": "string",
+      "Industry": "string",
+      "Country": "string",
+      "Segment": "string",
+      "Account_Manager": "string",
+      "Contract_Start": "string",
+      "Annual_Contract_Value": "number"
+    }
+  },
+  {
+    "id": "sales_transactions",
+    "name": "Sales Transactions (Fact)",
+    "fileName": "sales_transactions.csv",
+    "uploadedAt": "2025-01-01T00:00:00.000Z",
+    "rowCount": 200,
+    "columnCount": 14,
+    "headers": [
+      "Transaction_ID",
+      "Date",
+      "Product_ID",
+      "Customer_ID",
+      "Region_ID",
+      "Quantity",
+      "Unit_Price",
+      "Revenue",
+      "Discount_%",
+      "Net_Revenue",
+      "Cost",
+      "Profit",
+      "Sales_Rep",
+      "Channel"
+    ],
+    "columnTypes": {
+      "Transaction_ID": "string",
+      "Date": "string",
+      "Product_ID": "string",
+      "Customer_ID": "string",
+      "Region_ID": "string",
+      "Quantity": "number",
+      "Unit_Price": "number",
+      "Revenue": "number",
+      "Discount_%": "number",
+      "Net_Revenue": "number",
+      "Cost": "number",
+      "Profit": "number",
+      "Sales_Rep": "string",
+      "Channel": "string"
+    }
   }
 ]

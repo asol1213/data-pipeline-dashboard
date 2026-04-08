@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import KPICard from "@/components/KPICard";
+import GlobalFilter from "@/components/GlobalFilter";
 import DashboardCharts from "./DashboardCharts";
 import DashboardTable from "./DashboardTable";
 import { DashboardSkeleton } from "./DashboardSkeleton";
@@ -62,7 +63,7 @@ interface DashboardClientProps {
   initialData: DashboardData;
 }
 
-export default function DashboardClient({
+function DashboardClientInner({
   datasets,
   initialDatasetId,
   initialData,
@@ -70,6 +71,7 @@ export default function DashboardClient({
   const [selectedId, setSelectedId] = useState(initialDatasetId);
   const [data, setData] = useState<DashboardData>(initialData);
   const [loading, setLoading] = useState(false);
+  const [filteredRows, setFilteredRows] = useState<Record<string, string>[] | null>(null);
 
   const loadDataset = useCallback(async (id: string) => {
     if (id === initialDatasetId) {
@@ -98,8 +100,20 @@ export default function DashboardClient({
     }
   }, [selectedId, initialDatasetId, initialData, loadDataset]);
 
+  // Reset filtered rows when dataset changes
+  useEffect(() => {
+    setFilteredRows(null);
+  }, [selectedId]);
+
+  const handleFilteredData = useCallback((rows: Record<string, string>[]) => {
+    setFilteredRows(rows);
+  }, []);
+
   const selectedDataset = datasets.find((d) => d.id === selectedId);
   const { stats, insights, quality, rows, headers, columnTypes } = data;
+
+  // Use filtered rows if filters are active, otherwise use all rows
+  const displayRows = filteredRows ?? rows;
 
   const numericCols = headers.filter((h) => columnTypes[h] === "number");
   const labelCol =
@@ -123,7 +137,7 @@ export default function DashboardClient({
 
   const topInsights = insights.slice(0, 6);
 
-  const chartData = rows.map((row) => {
+  const chartData = displayRows.map((row) => {
     const item: Record<string, string | number> = { [labelCol]: row[labelCol] };
     numericCols.forEach((col) => {
       item[col] = Number(row[col]);
@@ -193,13 +207,21 @@ export default function DashboardClient({
         <DashboardSkeleton />
       ) : (
         <>
+          {/* Global Filter / Slicers */}
+          <GlobalFilter
+            headers={headers}
+            rows={rows}
+            columnTypes={columnTypes}
+            onFilteredData={handleFilteredData}
+          />
+
           {/* Quick Stats Summary Bar */}
           <div className="bg-bg-card rounded-xl border border-border-subtle p-4 mb-8">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-accent"></div>
-                  <span className="text-sm text-text-secondary font-medium">{stats.totalRows} rows</span>
+                  <span className="text-sm text-text-secondary font-medium">{displayRows.length} rows</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-[#8b5cf6]"></div>
@@ -216,6 +238,7 @@ export default function DashboardClient({
               </div>
               <span className="text-xs text-text-muted">
                 Showing: {selectedDataset?.name ?? selectedId}
+                {filteredRows && filteredRows.length !== rows.length ? ` (filtered: ${filteredRows.length}/${rows.length})` : ""}
               </span>
             </div>
           </div>
@@ -263,7 +286,7 @@ export default function DashboardClient({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <KPICard
               label="Total Rows"
-              value={stats.totalRows.toLocaleString()}
+              value={displayRows.length.toLocaleString()}
               icon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -318,7 +341,7 @@ export default function DashboardClient({
           <div className="mt-8">
             <DashboardTable
               headers={headers}
-              rows={rows}
+              rows={displayRows}
               columnTypes={columnTypes}
               anomalyIndices={anomalyIndices}
               columnStats={columnStatsMap}
@@ -327,5 +350,13 @@ export default function DashboardClient({
         </>
       )}
     </div>
+  );
+}
+
+export default function DashboardClient(props: DashboardClientProps) {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardClientInner {...props} />
+    </Suspense>
   );
 }
