@@ -134,6 +134,15 @@ export default function RootLayout({
                     <Link href="/planning" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
                       Scenarios
                     </Link>
+                    <Link href="/planning/simulator" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
+                      Simulator
+                    </Link>
+                    <Link href="/planning/forecast" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
+                      Forecast
+                    </Link>
+                    <Link href="/planning/compare" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
+                      Compare
+                    </Link>
                     <Link href="/planning/budget" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
                       Budget
                     </Link>
@@ -142,6 +151,12 @@ export default function RootLayout({
                     </Link>
                     <Link href="/planning/goal-seek" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
                       Goal Seek
+                    </Link>
+                    <Link href="/planning/headcount" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
+                      Headcount
+                    </Link>
+                    <Link href="/planning/cashflow" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition-colors">
+                      Cash Flow
                     </Link>
                   </div>
                 </div>
