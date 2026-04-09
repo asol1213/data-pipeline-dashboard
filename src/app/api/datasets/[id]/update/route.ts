@@ -1,5 +1,6 @@
 import { getDataset, updateDatasetRows } from "@/lib/store";
 import { ensureSeedData } from "@/lib/seed";
+import { refreshTable } from "@/lib/sqlite-engine";
 
 export async function PATCH(
   request: Request,
@@ -31,6 +32,9 @@ export async function PATCH(
         { status: 500 }
       );
     }
+
+    // Refresh SQLite table with updated data
+    await refreshTable(id);
 
     return Response.json({ success: true, rowCount: rows.length });
   } catch {

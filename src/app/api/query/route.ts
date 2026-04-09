@@ -1,6 +1,6 @@
 import { getAllDatasets, getDataset } from "@/lib/store";
 import { ensureSeedData } from "@/lib/seed";
-import { parseSQL, executeQuery, SQLError } from "@/lib/sql-engine";
+import { executeSQL } from "@/lib/sqlite-engine";
 import { evaluateDAX, DAXError } from "@/lib/dax";
 
 export async function POST(request: Request) {
@@ -9,34 +9,27 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { sql, dax, datasetId } = body as { sql?: string; dax?: string; datasetId?: string };
 
-    // Load all datasets into a map
-    const allMeta = getAllDatasets();
-    const datasets = new Map<string, { rows: Record<string, string>[]; headers: string[]; columnTypes: Record<string, string> }>();
-
-    for (const meta of allMeta) {
-      const full = getDataset(meta.id);
-      if (full) {
-        datasets.set(meta.id, {
-          rows: full.rows,
-          headers: full.headers,
-          columnTypes: full.columnTypes,
-        });
-        // Also register by name (lowercase, spaces replaced with underscores)
-        const nameKey = meta.name.toLowerCase().replace(/\s+/g, "_");
-        datasets.set(nameKey, {
-          rows: full.rows,
-          headers: full.headers,
-          columnTypes: full.columnTypes,
-        });
-      }
-    }
-
     // ── DAX mode ──
     if (dax && typeof dax === "string" && dax.trim().length > 0) {
+      const allMeta = getAllDatasets();
       const dsId = datasetId || allMeta[0]?.id;
       if (!dsId) {
         return Response.json({ error: "No dataset available" }, { status: 400 });
       }
+
+      // Load datasets into a map for DAX evaluation
+      const datasets = new Map<string, { rows: Record<string, string>[]; headers: string[]; columnTypes: Record<string, string> }>();
+      for (const meta of allMeta) {
+        const full = getDataset(meta.id);
+        if (full) {
+          datasets.set(meta.id, {
+            rows: full.rows,
+            headers: full.headers,
+            columnTypes: full.columnTypes,
+          });
+        }
+      }
+
       const ds = datasets.get(dsId);
       if (!ds) {
         return Response.json({ error: `Dataset '${dsId}' not found` }, { status: 400 });
@@ -57,7 +50,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // ── SQL mode ──
+    // ── SQL mode (SQLite via sql.js) ──
     if (!sql || typeof sql !== "string" || sql.trim().length === 0) {
       return Response.json(
         { error: "SQL query is required" },
@@ -65,8 +58,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const parsed = parseSQL(sql.trim());
-    const result = executeQuery(parsed, datasets);
+    const result = await executeSQL(sql.trim());
 
     return Response.json({
       columns: result.columns,
@@ -75,12 +67,10 @@ export async function POST(request: Request) {
       executionTime: result.executionTime,
     });
   } catch (err) {
-    if (err instanceof SQLError) {
-      return Response.json({ error: err.message }, { status: 400 });
-    }
+    const message = err instanceof Error ? err.message : "Failed to execute query";
     return Response.json(
-      { error: "Failed to execute query" },
-      { status: 500 }
+      { error: message },
+      { status: 400 }
     );
   }
 }

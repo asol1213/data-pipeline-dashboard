@@ -2,6 +2,7 @@ import { getAllDatasets, saveDataset, deleteDataset } from "@/lib/store";
 import { generateRevolutData, generateSiemensData, generateDeloitteData } from "@/lib/demo-data";
 import type { DemoCompany } from "@/lib/demo-data";
 import type { DatasetFull } from "@/lib/store";
+import { refreshAllTables } from "@/lib/sqlite-engine";
 
 const generators: Record<string, () => DemoCompany> = {
   revolut: generateRevolutData,
@@ -66,6 +67,9 @@ export async function POST(request: Request) {
       saveDataset(dataset);
       created.push(table.id);
     }
+
+    // Refresh SQLite tables to include new demo data
+    await refreshAllTables();
 
     return Response.json({
       success: true,

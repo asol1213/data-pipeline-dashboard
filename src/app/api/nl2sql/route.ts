@@ -1,7 +1,7 @@
 import Groq from "groq-sdk";
 import { getAllDatasets, getDataset } from "@/lib/store";
 import { ensureSeedData } from "@/lib/seed";
-import { parseSQL, executeQuery, SQLError } from "@/lib/sql-engine";
+import { executeSQL } from "@/lib/sqlite-engine";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -140,7 +140,7 @@ export async function POST(request: Request) {
 
     const richSchema = buildRichSchema();
 
-    const systemPrompt = `You are an expert SQL analyst. Generate a precise SQL query to answer the user's question.
+    const systemPrompt = `You are an expert SQL analyst. Generate a precise SQLite-compatible SQL query to answer the user's question.
 
 DATABASE SCHEMA:
 ${richSchema}
@@ -148,15 +148,16 @@ ${richSchema}
 CRITICAL RULES:
 1. Return ONLY the raw SQL query — no markdown, no code blocks, no explanation
 2. Use EXACT table names and column names from the schema above
-3. IMPORTANT: For date filtering in WHERE, ALWAYS use LIKE pattern matching: WHERE Date LIKE '2025%' (NOT YEAR() in WHERE — YEAR() only works in SELECT and GROUP BY)
-4. For "sales data 2025" → use WHERE Date LIKE '2025%'. For "January" → WHERE Date LIKE '%-01-%' or WHERE Month LIKE 'Jan%'
-5. For JOINs, match tables on their _ID columns (e.g., Product_ID, Customer_ID, Region_ID)
-6. Always add LIMIT 50 unless user asks for all data or aggregation
-7. Use GROUP BY for aggregations, ORDER BY DESC for "top/highest/best"
-8. Column names with special characters like % or & must be used as-is
-9. If the question mentions a year, month, or date range — ALWAYS filter by it
-10. If unsure which table, pick the most relevant one based on the column names mentioned
-11. If the user asks for a chart type (line, bar, pie), add: -- CHART:type at the end`;
+3. Generate standard SQLite SQL. All standard SQLite features are supported: JOINs, CTEs (WITH), window functions, CASE WHEN, subqueries, UNION, HAVING, OFFSET, etc.
+4. For date functions, use SQLite date functions: strftime('%Y', Date) for year, strftime('%m', Date) for month, strftime('%d', Date) for day. Or use LIKE patterns: WHERE Date LIKE '2025%'
+5. Table names with hyphens must be quoted: "sales-q1-2026". Or use underscore versions: sales_q1_2026 (both work)
+6. Column names with special characters must be quoted: "Discount_%"
+7. For JOINs, match tables on their _ID columns (e.g., Product_ID, Customer_ID, Region_ID)
+8. Always add LIMIT 50 unless user asks for all data or aggregation
+9. Use GROUP BY for aggregations, ORDER BY DESC for "top/highest/best"
+10. If the question mentions a year, month, or date range — ALWAYS filter by it
+11. If unsure which table, pick the most relevant one based on the column names mentioned
+12. If the user asks for a chart type (line, bar, pie), add: -- CHART:type at the end`;
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [
@@ -198,37 +199,13 @@ CRITICAL RULES:
       else if (/\barea\s+(chart|graph)\b/i.test(question)) chartHint = "area";
     }
 
-    // Execute the SQL
+    // Execute the SQL via SQLite
     ensureSeedData();
-    const allMeta = getAllDatasets();
-    const datasetsMap = new Map<
-      string,
-      { rows: Record<string, string>[]; headers: string[]; columnTypes: Record<string, string> }
-    >();
-
-    for (const meta of allMeta) {
-      const full = getDataset(meta.id);
-      if (full) {
-        datasetsMap.set(meta.id, {
-          rows: full.rows,
-          headers: full.headers,
-          columnTypes: full.columnTypes,
-        });
-        const nameKey = meta.name.toLowerCase().replace(/\s+/g, "_");
-        datasetsMap.set(nameKey, {
-          rows: full.rows,
-          headers: full.headers,
-          columnTypes: full.columnTypes,
-        });
-      }
-    }
-
-    const parsed = parseSQL(sql);
-    const result = executeQuery(parsed, datasetsMap);
+    const result = await executeSQL(sql);
 
     const detected = detectChartType(
       result.columns,
-      result.rows
+      result.rows as Record<string, string | number>[]
     );
 
     // Override chart type if hint was provided
@@ -249,10 +226,7 @@ CRITICAL RULES:
       isChartFirst,
     });
   } catch (err) {
-    if (err instanceof SQLError) {
-      return Response.json({ error: `SQL Error: ${err.message}` }, { status: 400 });
-    }
     const message = err instanceof Error ? err.message : "Failed to process request";
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json({ error: message }, { status: 400 });
   }
 }

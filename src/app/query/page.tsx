@@ -37,34 +37,36 @@ function generateExampleQueries(dataset: DatasetMeta): ExampleQuery[] {
   const { id, headers, columnTypes, rowCount } = dataset;
   const numericCols = headers.filter((h) => columnTypes[h] === "number");
   const queries: ExampleQuery[] = [];
+  // Quote table names that contain hyphens for SQLite compatibility
+  const tableRef = id.includes("-") ? `"${id}"` : id;
 
   queries.push({
     label: "All data (first 5)",
-    sql: `SELECT * FROM ${id} LIMIT 5`,
+    sql: `SELECT * FROM ${tableRef} LIMIT 5`,
   });
 
   if (numericCols.length >= 2) {
     queries.push({
       label: `${numericCols[0]} & ${numericCols[1]} sorted`,
-      sql: `SELECT ${numericCols[0]}, ${numericCols[1]} FROM ${id} ORDER BY ${numericCols[0]} DESC`,
+      sql: `SELECT "${numericCols[0]}", "${numericCols[1]}" FROM ${tableRef} ORDER BY "${numericCols[0]}" DESC`,
     });
   } else if (numericCols.length === 1) {
     queries.push({
       label: `${numericCols[0]} sorted`,
-      sql: `SELECT ${numericCols[0]} FROM ${id} ORDER BY ${numericCols[0]} DESC`,
+      sql: `SELECT "${numericCols[0]}" FROM ${tableRef} ORDER BY "${numericCols[0]}" DESC`,
     });
   }
 
   if (numericCols.length >= 1) {
     queries.push({
       label: `${numericCols[0]} aggregates`,
-      sql: `SELECT AVG(${numericCols[0]}), MAX(${numericCols[0]}) FROM ${id}`,
+      sql: `SELECT AVG("${numericCols[0]}"), MAX("${numericCols[0]}") FROM ${tableRef}`,
     });
 
     const medianEstimate = Math.round(rowCount / 2);
     queries.push({
       label: `Count where ${numericCols[0]} > ${medianEstimate}`,
-      sql: `SELECT COUNT(*) FROM ${id} WHERE ${numericCols[0]} > ${medianEstimate}`,
+      sql: `SELECT COUNT(*) FROM ${tableRef} WHERE "${numericCols[0]}" > ${medianEstimate}`,
     });
   }
 
@@ -88,7 +90,7 @@ type SortDir = "asc" | "desc" | null;
 
 export default function QueryPage() {
   const [sql, setSql] = useState(
-    "SELECT * FROM sales-q1-2026 LIMIT 10"
+    'SELECT * FROM "sales-q1-2026" LIMIT 10'
   );
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState("");
@@ -293,7 +295,7 @@ export default function QueryPage() {
             </div>
             <div className="px-4 py-3 border-t border-border-subtle flex items-center justify-between">
               <div className="text-xs text-text-muted">
-                SELECT, WHERE, ORDER BY, LIMIT, GROUP BY, HAVING, JOIN, CASE WHEN, IN, BETWEEN, UNION, window functions
+                Full SQLite SQL: SELECT, JOIN, WHERE, GROUP BY, HAVING, CASE WHEN, CTEs (WITH), window functions, date functions, OFFSET, subqueries, UNION, and more
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -573,25 +575,25 @@ export default function QueryPage() {
               </div>
               <div className="divide-y divide-border-subtle/50">
                 <button
-                  onClick={() => setSql("SELECT p.Month, p.Revenue, s.MRR FROM pnl-2025 p JOIN saas-kpis s ON p.Month = s.Month")}
+                  onClick={() => setSql('SELECT p.Month, p.Revenue, s.MRR FROM "pnl-2025" p JOIN "saas-kpis" s ON p.Month = s.Month')}
                   className="w-full text-left px-4 py-3 hover:bg-bg-card-hover transition-colors group"
                 >
                   <div className="text-xs font-medium text-text-secondary group-hover:text-accent mb-1">
                     P&L + SaaS KPIs (JOIN)
                   </div>
                   <div className="font-mono text-[11px] text-text-muted truncate">
-                    SELECT p.Month, p.Revenue, s.MRR FROM pnl-2025 p JOIN saas-kpis s ON p.Month = s.Month
+                    {`SELECT p.Month, p.Revenue, s.MRR FROM "pnl-2025" p JOIN "saas-kpis" s ON p.Month = s.Month`}
                   </div>
                 </button>
                 <button
-                  onClick={() => setSql("SELECT p.Revenue, f.Forecast FROM pnl-2025 p JOIN revenue-forecast f ON p.Month = f.Month")}
+                  onClick={() => setSql('SELECT p.Revenue, f.Forecast FROM "pnl-2025" p JOIN "revenue-forecast" f ON p.Month = f.Month')}
                   className="w-full text-left px-4 py-3 hover:bg-bg-card-hover transition-colors group"
                 >
                   <div className="text-xs font-medium text-text-secondary group-hover:text-accent mb-1">
                     Revenue vs Forecast (JOIN)
                   </div>
                   <div className="font-mono text-[11px] text-text-muted truncate">
-                    SELECT p.Revenue, f.Forecast FROM pnl-2025 p JOIN revenue-forecast f ON p.Month = f.Month
+                    {`SELECT p.Revenue, f.Forecast FROM "pnl-2025" p JOIN "revenue-forecast" f ON p.Month = f.Month`}
                   </div>
                 </button>
               </div>

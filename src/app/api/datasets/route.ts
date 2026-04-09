@@ -2,6 +2,7 @@ import { getAllDatasets, saveDataset } from "@/lib/store";
 import { ensureSeedData } from "@/lib/seed";
 import { parseCSV, detectAllColumnTypes } from "@/lib/csv-parser";
 import type { DatasetFull } from "@/lib/store";
+import { refreshTable } from "@/lib/sqlite-engine";
 
 export async function GET() {
   ensureSeedData();
@@ -49,6 +50,9 @@ export async function POST(request: Request) {
     };
 
     saveDataset(dataset);
+
+    // Refresh SQLite to include the new dataset as a table
+    await refreshTable(id);
 
     const { rows: _, ...meta } = dataset;
     return Response.json(meta, { status: 201 });
