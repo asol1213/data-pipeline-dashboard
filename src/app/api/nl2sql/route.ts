@@ -1,9 +1,113 @@
 import Groq from "groq-sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getAllDatasets, getDataset } from "@/lib/store";
 import { ensureSeedData } from "@/lib/seed";
 import { executeSQL } from "@/lib/sqlite-engine";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+const gemini = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+
+/** Try Groq first, then Gemini, then template fallback */
+async function generateSQLWithAI(systemPrompt: string, question: string): Promise<string> {
+  // 1. Try Groq
+  if (groq) {
+    try {
+      const res = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: question },
+        ],
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.1,
+        max_tokens: 512,
+      });
+      const sql = res.choices[0]?.message?.content?.trim();
+      if (sql) return sql;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log("Groq failed, trying Gemini:", msg.slice(0, 100));
+    }
+  }
+
+  // 2. Try Google Gemini
+  if (gemini) {
+    try {
+      const model = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const res = await model.generateContent(`${systemPrompt}\n\nUser question: ${question}`);
+      const text = res.response.text().trim();
+      // Clean markdown code blocks
+      const cleaned = text.replace(/^```sql?\s*\n?/i, "").replace(/\n?```\s*$/, "").trim();
+      if (cleaned) return cleaned;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log("Gemini failed, using template:", msg.slice(0, 100));
+    }
+  }
+
+  // 3. Template fallback (no AI needed)
+  return generateSQLFromTemplate(question);
+}
+
+/** Pattern-based SQL generator — works without any AI API */
+function generateSQLFromTemplate(question: string): string {
+  ensureSeedData();
+  const datasets = getAllDatasets();
+  const q = question.toLowerCase();
+
+  // Find best matching table
+  let bestTable = datasets[0]?.id || "sales_transactions";
+  for (const ds of datasets) {
+    const name = ds.name.toLowerCase();
+    const id = ds.id.toLowerCase();
+    if (q.includes(name) || q.includes(id) || q.includes(id.replace(/_/g, " "))) {
+      bestTable = ds.id;
+      break;
+    }
+  }
+  // Guess from keywords
+  if (q.includes("customer") || q.includes("kunden")) bestTable = datasets.find(d => d.id.includes("customer"))?.id || bestTable;
+  if (q.includes("product")) bestTable = datasets.find(d => d.id.includes("product"))?.id || bestTable;
+  if (q.includes("p&l") || q.includes("pnl") || q.includes("income")) bestTable = datasets.find(d => d.id.includes("pnl"))?.id || bestTable;
+  if (q.includes("budget")) bestTable = datasets.find(d => d.id.includes("budget"))?.id || bestTable;
+  if (q.includes("saas") || q.includes("mrr") || q.includes("churn")) bestTable = datasets.find(d => d.id.includes("saas"))?.id || bestTable;
+
+  const safeName = bestTable.includes("-") ? `"${bestTable}"` : bestTable;
+  const full = getDataset(bestTable);
+  const numericCols = full ? full.headers.filter(h => full.columnTypes[h] === "number") : [];
+  const stringCols = full ? full.headers.filter(h => full.columnTypes[h] === "string") : [];
+  const firstNum = numericCols[0] || "Revenue";
+  const firstStr = stringCols[0] || "Month";
+
+  // Pattern matching
+  const topMatch = q.match(/top\s+(\d+)/);
+  const topN = topMatch ? parseInt(topMatch[1]) : 10;
+
+  if (q.includes("top") || q.includes("highest") || q.includes("best") || q.includes("größt") || q.includes("höchst")) {
+    return `SELECT * FROM ${safeName} ORDER BY ${firstNum} DESC LIMIT ${topN}`;
+  }
+  if (q.includes("count") || q.includes("anzahl") || q.includes("wie viele")) {
+    const groupCol = stringCols.find(c => q.includes(c.toLowerCase())) || firstStr;
+    return `SELECT ${groupCol}, COUNT(*) AS count FROM ${safeName} GROUP BY ${groupCol} ORDER BY count DESC`;
+  }
+  if (q.includes("sum") || q.includes("total") || q.includes("summe") || q.includes("gesamt")) {
+    const groupCol = stringCols.find(c => q.includes(c.toLowerCase())) || firstStr;
+    return `SELECT ${groupCol}, SUM(${firstNum}) AS total FROM ${safeName} GROUP BY ${groupCol} ORDER BY total DESC`;
+  }
+  if (q.includes("average") || q.includes("avg") || q.includes("durchschnitt")) {
+    return `SELECT AVG(${firstNum}) AS average FROM ${safeName}`;
+  }
+  if (q.includes("by month") || q.includes("pro monat") || q.includes("monthly") || q.includes("monatlich")) {
+    const dateCol = full?.headers.find(h => h.toLowerCase().includes("date") || h === "Month") || "Month";
+    return `SELECT ${dateCol}, SUM(${firstNum}) AS total FROM ${safeName} GROUP BY ${dateCol} ORDER BY ${dateCol}`;
+  }
+  if (q.includes("2025")) {
+    const dateCol = full?.headers.find(h => h.toLowerCase().includes("date")) || "Date";
+    return `SELECT * FROM ${safeName} WHERE ${dateCol} LIKE '2025%' LIMIT 50`;
+  }
+
+  // Default: show all data
+  return `SELECT * FROM ${safeName} LIMIT 50`;
+}
 
 function buildTableSchema(meta: { id: string; name: string; rowCount: number }, full: { headers: string[]; columnTypes: Record<string, string>; rows: Record<string, string>[] }): string {
   const lines: string[] = [];
@@ -191,17 +295,7 @@ CRITICAL RULES:
 11. If unsure which table, pick the most relevant one based on the column names mentioned
 12. If the user asks for a chart type (line, bar, pie), add: -- CHART:type at the end`;
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: question },
-      ],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.1,
-      max_tokens: 512,
-    });
-
-    let sql = chatCompletion.choices[0]?.message?.content?.trim() || "";
+    let sql = await generateSQLWithAI(systemPrompt, question);
 
     // Clean up: remove markdown code blocks if present
     sql = sql.replace(/^```sql\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/, "").trim();
