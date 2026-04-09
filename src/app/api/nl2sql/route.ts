@@ -22,29 +22,24 @@ function buildRichSchema(): string {
     lines.push(`Columns:`);
     for (const h of full.headers) {
       const type = full.columnTypes[h];
-      const values = full.rows.map(r => r[h]).filter(Boolean);
+      const values = full.rows.slice(0, 50).map(r => r[h]).filter(Boolean);
 
       if (type === "number") {
         const nums = values.map(Number).filter(n => !isNaN(n));
         if (nums.length > 0) {
-          const min = Math.min(...nums);
-          const max = Math.max(...nums);
-          lines.push(`  - ${h} (${type}): range ${min} to ${max}`);
+          lines.push(`  - ${h} (number): ${Math.min(...nums)} to ${Math.max(...nums)}`);
         } else {
-          lines.push(`  - ${h} (${type})`);
+          lines.push(`  - ${h} (number)`);
         }
       } else {
         const unique = [...new Set(values)];
-        if (unique.length <= 15) {
-          lines.push(`  - ${h} (${type}): values = [${unique.slice(0, 10).map(v => `"${v}"`).join(", ")}${unique.length > 10 ? "..." : ""}]`);
+        if (unique.length <= 8) {
+          lines.push(`  - ${h} (string): [${unique.map(v => `"${v}"`).join(", ")}]`);
+        } else if (h.toLowerCase().includes("date") || h === "Month") {
+          const sorted = unique.sort();
+          lines.push(`  - ${h} (string/date): "${sorted[0]}" to "${sorted[sorted.length - 1]}"`);
         } else {
-          // Show date range if it looks like dates
-          if (h.toLowerCase().includes("date") || h === "Month") {
-            const sorted = unique.sort();
-            lines.push(`  - ${h} (${type}): range "${sorted[0]}" to "${sorted[sorted.length - 1]}" (${unique.length} unique values)`);
-          } else {
-            lines.push(`  - ${h} (${type}): ${unique.length} unique values, e.g. "${unique[0]}", "${unique[1]}"`);
-          }
+          lines.push(`  - ${h} (string): ${unique.length} unique, e.g. "${unique[0]}"`);
         }
       }
     }
@@ -55,8 +50,8 @@ function buildRichSchema(): string {
       lines.push(`Key columns: ${idCols.join(", ")}`);
     }
 
-    // Sample rows
-    lines.push(`Sample (first 3 rows): ${JSON.stringify(full.rows.slice(0, 3))}`);
+    // Only 1 sample row to keep prompt small
+    lines.push(`Sample: ${JSON.stringify(full.rows[0])}`);
 
     sections.push(lines.join("\n"));
   }
