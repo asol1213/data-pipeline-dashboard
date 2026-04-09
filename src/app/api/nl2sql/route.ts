@@ -65,6 +65,7 @@ function generateSQLFromTemplate(question: string): string {
     }
   }
   // Guess from keywords
+  if (q.includes("sales") || q.includes("umsatz") || q.includes("revenue") || q.includes("transaction")) bestTable = datasets.find(d => d.id.includes("sales_transaction") || d.id.includes("sales-q1"))?.id || bestTable;
   if (q.includes("customer") || q.includes("kunden")) bestTable = datasets.find(d => d.id.includes("customer"))?.id || bestTable;
   if (q.includes("product")) bestTable = datasets.find(d => d.id.includes("product"))?.id || bestTable;
   if (q.includes("p&l") || q.includes("pnl") || q.includes("income")) bestTable = datasets.find(d => d.id.includes("pnl"))?.id || bestTable;
