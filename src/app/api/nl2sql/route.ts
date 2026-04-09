@@ -35,16 +35,68 @@ async function generateSQLWithAI(systemPrompt: string, question: string): Promis
       const model = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
       const res = await model.generateContent(`${systemPrompt}\n\nUser question: ${question}`);
       const text = res.response.text().trim();
-      // Clean markdown code blocks
       const cleaned = text.replace(/^```sql?\s*\n?/i, "").replace(/\n?```\s*$/, "").trim();
       if (cleaned) return cleaned;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.log("Gemini failed, using template:", msg.slice(0, 100));
+      console.log("Gemini failed:", (err instanceof Error ? err.message : "").slice(0, 80));
     }
   }
 
-  // 3. Template fallback (no AI needed)
+  // 3. Try Cerebras (OpenAI-compatible, generous free tier)
+  if (process.env.CEREBRAS_API_KEY) {
+    try {
+      const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.CEREBRAS_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: question },
+          ],
+          temperature: 0.1,
+          max_tokens: 512,
+        }),
+      });
+      const data = await res.json();
+      const sql = data.choices?.[0]?.message?.content?.trim();
+      if (sql) return sql;
+    } catch (err: unknown) {
+      console.log("Cerebras failed:", (err instanceof Error ? err.message : "").slice(0, 80));
+    }
+  }
+
+  // 4. Try OpenRouter (free models)
+  if (process.env.OPENROUTER_API_KEY) {
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "meta-llama/llama-3.3-70b-instruct:free",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: question },
+          ],
+          temperature: 0.1,
+          max_tokens: 512,
+        }),
+      });
+      const data = await res.json();
+      const sql = data.choices?.[0]?.message?.content?.trim();
+      if (sql) return sql;
+    } catch (err: unknown) {
+      console.log("OpenRouter failed:", (err instanceof Error ? err.message : "").slice(0, 80));
+    }
+  }
+
+  // 5. Template fallback (no AI needed — always works)
   return generateSQLFromTemplate(question);
 }
 
