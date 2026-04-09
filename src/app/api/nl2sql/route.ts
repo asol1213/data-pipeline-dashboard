@@ -148,8 +148,8 @@ ${richSchema}
 CRITICAL RULES:
 1. Return ONLY the raw SQL query — no markdown, no code blocks, no explanation
 2. Use EXACT table names and column names from the schema above
-3. When filtering by date/year/month, use the Date or Month column with YEAR(), MONTH() functions or string matching (e.g., WHERE Date LIKE '2025%' or WHERE YEAR(Date) = 2025)
-4. For "sales data 2025" → filter WHERE YEAR(Date) = 2025 or WHERE Date LIKE '2025%'
+3. IMPORTANT: For date filtering in WHERE, ALWAYS use LIKE pattern matching: WHERE Date LIKE '2025%' (NOT YEAR() in WHERE — YEAR() only works in SELECT and GROUP BY)
+4. For "sales data 2025" → use WHERE Date LIKE '2025%'. For "January" → WHERE Date LIKE '%-01-%' or WHERE Month LIKE 'Jan%'
 5. For JOINs, match tables on their _ID columns (e.g., Product_ID, Customer_ID, Region_ID)
 6. Always add LIMIT 50 unless user asks for all data or aggregation
 7. Use GROUP BY for aggregations, ORDER BY DESC for "top/highest/best"
