@@ -102,6 +102,9 @@ export default function QueryPage() {
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   useEffect(() => {
     setSavedQueries(getSavedQueries());
@@ -119,6 +122,28 @@ export default function QueryPage() {
     deleteSavedQuery(name);
     setSavedQueries(getSavedQueries());
   }, []);
+
+  const handleAiGenerate = useCallback(async () => {
+    if (!aiPrompt.trim()) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch("/api/nl2sql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: aiPrompt.trim() }),
+      });
+      const data = await res.json();
+      if (data.sql) {
+        setSql(data.sql);
+        setAiOpen(false);
+        setAiPrompt("");
+      }
+    } catch {
+      // ignore - user can retry
+    } finally {
+      setAiLoading(false);
+    }
+  }, [aiPrompt]);
 
   useEffect(() => {
     fetch("/api/datasets")
@@ -282,6 +307,12 @@ export default function QueryPage() {
                   Save
                 </button>
                 <button
+                  onClick={() => setAiOpen((v) => !v)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-500/30 text-purple-400 text-sm font-medium hover:bg-purple-500/10 transition-colors"
+                >
+                  &#10024; AI Write
+                </button>
+                <button
                   onClick={runQuery}
                   disabled={loading || !sql.trim()}
                   className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -303,6 +334,42 @@ export default function QueryPage() {
                 </button>
               </div>
             </div>
+            {/* AI Write panel */}
+            {aiOpen && (
+              <div className="px-4 py-3 border-t border-border-subtle bg-purple-500/5 flex items-center gap-2">
+                <span className="text-xs text-purple-400 whitespace-nowrap">&#10024;</span>
+                <input
+                  type="text"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="What do you want to query? e.g. Top 10 customers by revenue"
+                  className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-purple-500"
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAiGenerate(); if (e.key === "Escape") setAiOpen(false); }}
+                  autoFocus
+                  disabled={aiLoading}
+                />
+                <button
+                  onClick={handleAiGenerate}
+                  disabled={aiLoading || !aiPrompt.trim()}
+                  className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+                >
+                  {aiLoading ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    "Generate"
+                  )}
+                </button>
+                <button
+                  onClick={() => setAiOpen(false)}
+                  className="px-2 py-1.5 text-text-muted hover:text-text-secondary text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
             {/* Save dialog */}
             {saveDialogOpen && (
               <div className="px-4 py-3 border-t border-border-subtle bg-bg-card flex items-center gap-2">

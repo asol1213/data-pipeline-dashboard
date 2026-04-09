@@ -85,7 +85,7 @@ export default function GuidedTour() {
     };
   }, [startTour]);
 
-  // Position tooltip relative to target element
+  // Position spotlight relative to target element (viewport-relative for fixed positioning)
   useEffect(() => {
     if (!active) return;
 
@@ -99,10 +99,11 @@ export default function GuidedTour() {
         target.scrollIntoView({ behavior: "smooth", block: "center" });
         // Wait a tick for scroll to complete before measuring
         await new Promise((r) => setTimeout(r, 400));
+        // Use getBoundingClientRect for VIEWPORT-relative coordinates (since overlay is fixed)
         const rect = target.getBoundingClientRect();
         setTooltipPos({
-          top: rect.top + window.scrollY,
-          left: rect.left + window.scrollX,
+          top: rect.top,
+          left: rect.left,
           width: rect.width,
           height: rect.height,
         });
@@ -145,59 +146,21 @@ export default function GuidedTour() {
   if (!active || !tooltipPos) return null;
 
   const currentStep = TOUR_STEPS[step];
-
-  // Calculate tooltip position — keep in viewport
-  const viewportH = typeof window !== "undefined" ? window.innerHeight : 800;
-  const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const tooltipH = 200; // approximate tooltip height
-  const belowTop = tooltipPos.top + tooltipPos.height + 12;
-  const aboveTop = tooltipPos.top - tooltipH - 12;
-  // If below would go off screen, place above. If above is negative, use center.
-  const tooltipTop = belowTop + tooltipH > viewportH + window.scrollY
-    ? (aboveTop > window.scrollY ? aboveTop : window.scrollY + viewportH / 2 - tooltipH / 2)
-    : belowTop;
-  const tooltipLeft = Math.max(
-    16,
-    Math.min(
-      tooltipPos.left + tooltipPos.width / 2 - 160,
-      viewportW - 336
-    )
-  );
-
-  // Spotlight clip path
-  const spotX = tooltipPos.left - 4;
-  const spotY = tooltipPos.top - 4;
-  const spotW = tooltipPos.width + 8;
-  const spotH = tooltipPos.height + 8;
+  const targetRect = tooltipPos;
 
   return (
     <div className="fixed inset-0 z-[200] pointer-events-none" aria-modal="true">
-      {/* Dark overlay with spotlight cutout */}
-      <div className="absolute inset-0 bg-black/70 transition-all duration-300 pointer-events-none">
-        <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
-          <defs>
-            <mask id="tour-spotlight">
-              <rect x="0" y="0" width="100%" height="100%" fill="white" />
-              <rect
-                x={spotX}
-                y={spotY}
-                width={spotW}
-                height={spotH}
-                rx="8"
-                fill="black"
-              />
-            </mask>
-          </defs>
-          <rect
-            x="0"
-            y="0"
-            width="100%"
-            height="100%"
-            fill="rgba(0,0,0,0.7)"
-            mask="url(#tour-spotlight)"
-          />
-        </svg>
-      </div>
+      {/* Spotlight highlight around target — box-shadow covers rest of screen */}
+      <div
+        className="fixed z-[201] rounded-lg ring-4 ring-accent/50 pointer-events-none transition-all duration-500"
+        style={{
+          top: targetRect.top,
+          left: targetRect.left,
+          width: targetRect.width,
+          height: targetRect.height,
+          boxShadow: "0 0 0 9999px rgba(0,0,0,0.75)",
+        }}
+      />
 
       {/* Tooltip — fixed at bottom center so buttons are always visible */}
       <div

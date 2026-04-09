@@ -42,8 +42,8 @@ export default function ScreenshotButton() {
       className={`w-9 h-9 rounded-lg bg-bg-card border border-border-subtle flex items-center justify-center text-text-secondary hover:text-text-primary hover:border-border-color transition-colors ${
         capturing ? "opacity-50 cursor-wait" : ""
       }`}
-      title="Screenshot current view"
-      aria-label="Screenshot current view"
+      title="Take Screenshot"
+      aria-label="Take Screenshot"
     >
       {capturing ? (
         <svg

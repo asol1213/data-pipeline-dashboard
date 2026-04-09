@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
 interface DatasetMeta {
   id: string;
@@ -106,6 +106,9 @@ export default function PivotPage() {
   const [valueField, setValueField] = useState("");
   const [aggregation, setAggregation] = useState<AggregationType>("SUM");
   const [loading, setLoading] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/datasets")
@@ -157,6 +160,57 @@ export default function PivotPage() {
     }
   }, [selectedDatasetId, allFieldHeaders.length, stringHeaders.length, numericHeaders.length]);
 
+  const handleAiSuggest = useCallback(async () => {
+    if (!aiPrompt.trim() || !selectedDataset) return;
+    setAiLoading(true);
+    try {
+      const cols = selectedDataset.headers.join(", ");
+      const numCols = numericHeaders.join(", ");
+      const strCols = stringHeaders.join(", ");
+      const prompt = `Given a pivot table with these columns:
+All columns: ${cols}
+String columns: ${strCols}
+Numeric columns: ${numCols}
+Available aggregations: SUM, AVG, COUNT, MIN, MAX
+
+User wants: "${aiPrompt.trim()}"
+
+Return ONLY a JSON object with exactly these fields (no markdown, no explanation):
+{"rowField":"...","colField":"...","valueField":"...","aggregation":"..."}
+
+Use exact column names from the lists above.`;
+
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt }),
+      });
+      const text = await res.text();
+      // Extract JSON from response
+      const jsonMatch = text.match(/\{[^}]+\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as {
+          rowField?: string;
+          colField?: string;
+          valueField?: string;
+          aggregation?: string;
+        };
+        if (parsed.rowField && allFieldHeaders.includes(parsed.rowField)) setRowField(parsed.rowField);
+        if (parsed.colField && allFieldHeaders.includes(parsed.colField)) setColField(parsed.colField);
+        if (parsed.valueField && allFieldHeaders.includes(parsed.valueField)) setValueField(parsed.valueField);
+        if (parsed.aggregation && ["SUM", "AVG", "COUNT", "MIN", "MAX"].includes(parsed.aggregation.toUpperCase())) {
+          setAggregation(parsed.aggregation.toUpperCase() as AggregationType);
+        }
+        setAiOpen(false);
+        setAiPrompt("");
+      }
+    } catch {
+      // ignore - user can retry
+    } finally {
+      setAiLoading(false);
+    }
+  }, [aiPrompt, selectedDataset, allFieldHeaders, numericHeaders, stringHeaders]);
+
   const pivotResult = useMemo(() => {
     if (!rowField || !colField || !valueField || datasetRows.length === 0) return null;
     return clientPivot(datasetRows, rowField, colField, valueField, aggregation);
@@ -173,6 +227,50 @@ export default function PivotPage() {
 
       {/* Configuration */}
       <div className="bg-bg-card rounded-xl border border-border-subtle p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-medium text-text-muted uppercase tracking-wider">Configuration</span>
+          <button
+            onClick={() => setAiOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-500/30 text-purple-400 text-sm font-medium hover:bg-purple-500/10 transition-colors"
+          >
+            &#10024; AI Suggest
+          </button>
+        </div>
+        {aiOpen && (
+          <div className="mb-4 p-3 rounded-lg bg-purple-500/5 border border-purple-500/20 flex items-center gap-2">
+            <span className="text-xs text-purple-400 whitespace-nowrap">&#10024;</span>
+            <input
+              type="text"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder="Describe your pivot, e.g. Revenue by channel and quarter"
+              className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-purple-500"
+              onKeyDown={(e) => { if (e.key === "Enter") handleAiSuggest(); if (e.key === "Escape") setAiOpen(false); }}
+              autoFocus
+              disabled={aiLoading}
+            />
+            <button
+              onClick={handleAiSuggest}
+              disabled={aiLoading || !aiPrompt.trim()}
+              className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+            >
+              {aiLoading ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Suggesting...
+                </>
+              ) : (
+                "Suggest"
+              )}
+            </button>
+            <button
+              onClick={() => setAiOpen(false)}
+              className="px-2 py-1.5 text-text-muted hover:text-text-secondary text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {/* Dataset */}
           <div>
