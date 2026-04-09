@@ -331,9 +331,22 @@ CRITICAL RULES:
       else if (/\barea\s+(chart|graph)\b/i.test(question)) chartHint = "area";
     }
 
-    // Execute the SQL via SQLite
+    // Execute the SQL via SQLite — fallback to template if AI SQL fails
     ensureSeedData();
-    const result = await executeSQL(sql);
+    let result;
+    try {
+      result = await executeSQL(sql);
+    } catch (sqlErr) {
+      // AI-generated SQL failed — try template fallback
+      console.log("AI SQL failed, falling back to template:", (sqlErr as Error).message);
+      const templateSql = generateSQLFromTemplate(question);
+      sql = templateSql;
+      try {
+        result = await executeSQL(templateSql);
+      } catch {
+        return Response.json({ error: `SQL Error: ${(sqlErr as Error).message}` }, { status: 400 });
+      }
+    }
 
     const detected = detectChartType(
       result.columns,
