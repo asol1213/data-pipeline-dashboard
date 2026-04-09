@@ -101,9 +101,14 @@ function generateSQLFromTemplate(question: string): string {
     const dateCol = full?.headers.find(h => h.toLowerCase().includes("date") || h === "Month") || "Month";
     return `SELECT ${dateCol}, SUM(${firstNum}) AS total FROM ${safeName} GROUP BY ${dateCol} ORDER BY ${dateCol}`;
   }
-  if (q.includes("2025")) {
-    const dateCol = full?.headers.find(h => h.toLowerCase().includes("date")) || "Date";
-    return `SELECT * FROM ${safeName} WHERE ${dateCol} LIKE '2025%' LIMIT 50`;
+  if (q.includes("2025") || q.includes("2024") || q.includes("2026")) {
+    const year = q.match(/(202\d)/)?.[1] || "2025";
+    const dateCol = full?.headers.find(h => h.toLowerCase().includes("date") || h === "Month") || "Date";
+    // Check if column exists
+    if (full?.headers.includes(dateCol)) {
+      return `SELECT * FROM ${safeName} WHERE "${dateCol}" LIKE '${year}%' LIMIT 50`;
+    }
+    return `SELECT * FROM ${safeName} LIMIT 50`;
   }
 
   // Default: show all data
