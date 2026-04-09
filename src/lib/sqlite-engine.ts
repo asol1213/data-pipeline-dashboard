@@ -1,5 +1,7 @@
 import initSqlJs, { Database } from "sql.js";
 import { getAllDatasets, getDataset } from "@/lib/store";
+import fs from "fs";
+import path from "path";
 
 let db: Database | null = null;
 let initPromise: Promise<Database> | null = null;
@@ -65,8 +67,30 @@ async function getDB(): Promise<Database> {
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    // Server-side (Node.js / API routes): do NOT pass locateFile
-    const SQL = await initSqlJs();
+    // Load WASM binary manually for Vercel serverless compatibility
+    let wasmBinary: ArrayLike<number> | undefined;
+    try {
+      const wasmPath = path.join(process.cwd(), "node_modules", "sql.js", "dist", "sql-wasm.wasm");
+      if (fs.existsSync(wasmPath)) {
+        wasmBinary = fs.readFileSync(wasmPath);
+      }
+    } catch {
+      // Fallback: let sql.js try to find it
+    }
+
+    // Also try public/ path
+    if (!wasmBinary) {
+      try {
+        const publicPath = path.join(process.cwd(), "public", "sql-wasm.wasm");
+        if (fs.existsSync(publicPath)) {
+          wasmBinary = fs.readFileSync(publicPath);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    const SQL = await initSqlJs(wasmBinary ? { wasmBinary } : undefined);
     db = new SQL.Database();
 
     // Load all datasets as tables
