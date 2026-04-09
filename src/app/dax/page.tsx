@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 interface DatasetMeta {
   id: string;
@@ -30,6 +30,25 @@ const exampleFormulas = [
   { label: "Min Quantity", dax: "MIN(Quantity)" },
 ];
 
+function getDaxQuickExamples(ds: DatasetMeta | undefined): { label: string; prompt: string }[] {
+  if (!ds) return [];
+  const numCols = ds.headers.filter((h) => ds.columnTypes[h] === "number");
+  const examples: { label: string; prompt: string }[] = [];
+
+  if (numCols.length > 0) {
+    examples.push({ label: `Sum ${numCols[0]}`, prompt: `Sum of ${numCols[0]}` });
+    examples.push({ label: `Average ${numCols[0]}`, prompt: `Average ${numCols[0]}` });
+  }
+  if (numCols.length > 1) {
+    examples.push({ label: `${numCols[0]} / ${numCols[1]}`, prompt: `Ratio of ${numCols[0]} to ${numCols[1]}` });
+  }
+  examples.push({ label: "Year-to-date total", prompt: "Year-to-date total revenue" });
+  examples.push({ label: "Same period last year", prompt: "Same period last year comparison" });
+  examples.push({ label: "Count distinct", prompt: "Count of distinct values" });
+
+  return examples.slice(0, 6);
+}
+
 export default function DAXPage() {
   const [datasets, setDatasets] = useState<DatasetMeta[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState("sales_transactions");
@@ -37,9 +56,15 @@ export default function DAXPage() {
   const [result, setResult] = useState<DAXResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // AI Write state
+  const [aiOpen, setAiOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
+  const [aiTableId, setAiTableId] = useState("sales_transactions");
+  const [aiGeneratedFormula, setAiGeneratedFormula] = useState("");
+  const [aiRefineInput, setAiRefineInput] = useState("");
+  const [aiRefineOpen, setAiRefineOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/datasets")
@@ -50,6 +75,7 @@ export default function DAXPage() {
           const hasSales = data.some((d) => d.id === "sales_transactions");
           if (!hasSales) {
             setSelectedDatasetId(data[0].id);
+            setAiTableId(data[0].id);
           }
         }
       })
@@ -91,30 +117,84 @@ export default function DAXPage() {
     }
   };
 
-  const handleAiGenerate = useCallback(async () => {
-    if (!aiPrompt.trim()) return;
+  const aiSelectedDataset = useMemo(() => {
+    return datasets.find((d) => d.id === aiTableId);
+  }, [datasets, aiTableId]);
+
+  const aiQuickExamples = useMemo(() => {
+    return getDaxQuickExamples(aiSelectedDataset);
+  }, [aiSelectedDataset]);
+
+  const handleAiGenerate = useCallback(async (prompt?: string) => {
+    const question = (prompt || aiPrompt).trim();
+    if (!question) return;
     setAiLoading(true);
+    setAiGeneratedFormula("");
+    setAiRefineOpen(false);
     try {
+      const ds = datasets.find((d) => d.id === aiTableId);
+      const colInfo = ds ? ds.headers.map(h => `${h} (${ds.columnTypes[h] || "string"})`).join(", ") : "";
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: `Generate a single DAX formula for: "${aiPrompt.trim()}". Return ONLY the DAX formula, nothing else. No markdown, no explanation, just the raw DAX expression. Example output: TOTALYTD(SUM(Revenue), Date)`,
+          message: `Generate a single DAX formula for: "${question}".\nThe dataset "${aiTableId}" has these columns: ${colInfo}.\nReturn ONLY the DAX formula, nothing else. No markdown, no explanation, just the raw DAX expression. Example output: TOTALYTD(SUM(Revenue), Date)`,
         }),
       });
       const text = await res.text();
       const cleaned = text.replace(/^```[a-z]*\s*/i, "").replace(/\s*```$/, "").trim();
       if (cleaned) {
-        setFormula(cleaned);
-        setAiOpen(false);
-        setAiPrompt("");
+        setAiGeneratedFormula(cleaned);
       }
     } catch {
       // ignore - user can retry
     } finally {
       setAiLoading(false);
     }
-  }, [aiPrompt]);
+  }, [aiPrompt, aiTableId, datasets]);
+
+  const handleAiUseFormula = useCallback(() => {
+    if (aiGeneratedFormula) {
+      setFormula(aiGeneratedFormula);
+      setAiOpen(false);
+      setAiPrompt("");
+      setAiGeneratedFormula("");
+      setAiRefineOpen(false);
+    }
+  }, [aiGeneratedFormula]);
+
+  const handleAiRefine = useCallback(async () => {
+    if (!aiRefineInput.trim() || !aiGeneratedFormula) return;
+    setAiLoading(true);
+    try {
+      const ds = datasets.find((d) => d.id === aiTableId);
+      const colInfo = ds ? ds.headers.map(h => `${h} (${ds.columnTypes[h] || "string"})`).join(", ") : "";
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Refine this DAX formula: ${aiGeneratedFormula}\nChanges: ${aiRefineInput.trim()}\nDataset columns: ${colInfo}\nReturn ONLY the updated DAX formula, nothing else.`,
+        }),
+      });
+      const text = await res.text();
+      const cleaned = text.replace(/^```[a-z]*\s*/i, "").replace(/\s*```$/, "").trim();
+      if (cleaned) {
+        setAiGeneratedFormula(cleaned);
+        setAiRefineInput("");
+      }
+    } catch {
+      // ignore
+    } finally {
+      setAiLoading(false);
+    }
+  }, [aiRefineInput, aiGeneratedFormula, aiTableId, datasets]);
+
+  const handleColumnChipClick = useCallback((col: string) => {
+    setAiPrompt((prev) => {
+      if (prev && !prev.endsWith(" ")) return prev + " " + col;
+      return prev + col;
+    });
+  }, []);
 
   const selectedDataset = datasets.find((d) => d.id === selectedDatasetId);
 
@@ -189,8 +269,12 @@ export default function DAXPage() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setAiOpen((v) => !v)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-500/30 text-purple-400 text-sm font-medium hover:bg-purple-500/10 transition-colors"
+                  onClick={() => { setAiOpen((v) => !v); setAiGeneratedFormula(""); setAiRefineOpen(false); }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    aiOpen
+                      ? "border-purple-500/50 text-purple-300 bg-purple-500/10"
+                      : "border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                  }`}
                 >
                   &#10024; AI Write
                 </button>
@@ -216,43 +300,192 @@ export default function DAXPage() {
                 </button>
               </div>
             </div>
-            {/* AI Write panel */}
-            {aiOpen && (
-              <div className="px-4 py-3 border-t border-border-subtle bg-purple-500/5 flex items-center gap-2">
-                <span className="text-xs text-purple-400 whitespace-nowrap">&#10024;</span>
-                <input
-                  type="text"
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  placeholder="What DAX formula do you need? e.g. Year-to-date revenue"
-                  className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-purple-500"
-                  onKeyDown={(e) => { if (e.key === "Enter") handleAiGenerate(); if (e.key === "Escape") setAiOpen(false); }}
-                  autoFocus
-                  disabled={aiLoading}
-                />
+          </div>
+
+          {/* AI DAX Assistant Panel */}
+          {aiOpen && (
+            <div className="bg-bg-card rounded-xl border border-purple-500/30 overflow-hidden mb-4">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-purple-500/20 bg-purple-500/5">
+                <span className="text-sm font-medium text-purple-300 flex items-center gap-2">
+                  <span>&#10024;</span> AI DAX Assistant
+                </span>
                 <button
-                  onClick={handleAiGenerate}
-                  disabled={aiLoading || !aiPrompt.trim()}
-                  className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+                  onClick={() => { setAiOpen(false); setAiGeneratedFormula(""); setAiRefineOpen(false); }}
+                  className="text-text-muted hover:text-text-secondary text-lg leading-none px-1"
+                  aria-label="Close AI panel"
                 >
-                  {aiLoading ? (
-                    <>
-                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    "Generate"
-                  )}
-                </button>
-                <button
-                  onClick={() => setAiOpen(false)}
-                  className="px-2 py-1.5 text-text-muted hover:text-text-secondary text-sm"
-                >
-                  Cancel
+                  &times;
                 </button>
               </div>
-            )}
-          </div>
+
+              <div className="p-4 space-y-4">
+                {/* Table selector */}
+                <div>
+                  <label className="text-xs font-medium text-text-muted uppercase tracking-wider block mb-2">
+                    Table
+                  </label>
+                  <select
+                    value={aiTableId}
+                    onChange={(e) => setAiTableId(e.target.value)}
+                    className="w-full bg-bg-input border border-border-subtle rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-purple-500 cursor-pointer"
+                  >
+                    {datasets.map((ds) => (
+                      <option key={ds.id} value={ds.id}>
+                        {ds.name} ({ds.rowCount} rows)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Column chips */}
+                {aiSelectedDataset && (
+                  <div>
+                    <label className="text-xs font-medium text-text-muted uppercase tracking-wider block mb-2">
+                      Available Columns
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {aiSelectedDataset.headers.map((h) => (
+                        <button
+                          key={h}
+                          onClick={() => handleColumnChipClick(h)}
+                          className={`text-xs px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                            aiSelectedDataset.columnTypes[h] === "number"
+                              ? "bg-blue-900/20 text-blue-400 hover:bg-blue-900/40"
+                              : "bg-emerald-900/20 text-emerald-400 hover:bg-emerald-900/40"
+                          }`}
+                          title={`${h} (${aiSelectedDataset.columnTypes[h] || "string"}) - click to insert`}
+                        >
+                          {h}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Prompt input */}
+                <div>
+                  <label className="text-xs font-medium text-text-muted uppercase tracking-wider block mb-2">
+                    Describe what you want
+                  </label>
+                  <input
+                    type="text"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="e.g. Year-to-date revenue or profit margin percentage"
+                    className="w-full bg-bg-input border border-border-subtle rounded-lg px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-purple-500"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAiGenerate(); }
+                      if (e.key === "Escape") setAiOpen(false);
+                    }}
+                    autoFocus
+                    disabled={aiLoading}
+                  />
+                </div>
+
+                {/* Quick examples */}
+                {aiQuickExamples.length > 0 && !aiGeneratedFormula && (
+                  <div>
+                    <label className="text-xs font-medium text-text-muted uppercase tracking-wider block mb-2">
+                      Quick Examples
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {aiQuickExamples.map((ex, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            setAiPrompt(ex.prompt);
+                            handleAiGenerate(ex.prompt);
+                          }}
+                          className="text-xs px-3 py-1.5 rounded-lg border border-border-subtle text-text-secondary hover:text-purple-400 hover:border-purple-500/30 transition-colors"
+                        >
+                          {ex.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Generate button */}
+                {!aiGeneratedFormula && (
+                  <button
+                    onClick={() => handleAiGenerate()}
+                    disabled={aiLoading || !aiPrompt.trim()}
+                    className="w-full px-4 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 transition-colors"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Generating DAX...
+                      </>
+                    ) : (
+                      "Generate DAX"
+                    )}
+                  </button>
+                )}
+
+                {/* Generated formula preview */}
+                {aiGeneratedFormula && (
+                  <div className="space-y-3">
+                    <label className="text-xs font-medium text-text-muted uppercase tracking-wider block">
+                      Generated Formula
+                    </label>
+                    <div className="bg-[#0d1117] rounded-lg p-3 overflow-x-auto">
+                      <pre className="text-xs text-amber-400 font-mono whitespace-pre-wrap">{aiGeneratedFormula}</pre>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleAiUseFormula}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
+                      >
+                        <span>&#9989;</span> Use This Formula
+                      </button>
+                      <button
+                        onClick={() => setAiRefineOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border-subtle text-text-secondary text-sm font-medium hover:bg-bg-card-hover transition-colors"
+                      >
+                        <span>&#128260;</span> Refine
+                      </button>
+                      <button
+                        onClick={() => { setAiGeneratedFormula(""); setAiRefineOpen(false); }}
+                        className="px-3 py-2 text-text-muted hover:text-text-secondary text-sm transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+
+                    {/* Refine input */}
+                    {aiRefineOpen && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={aiRefineInput}
+                          onChange={(e) => setAiRefineInput(e.target.value)}
+                          placeholder='e.g. "make it year-to-date" or "add a filter for Online channel"'
+                          className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-purple-500"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleAiRefine();
+                          }}
+                          autoFocus
+                          disabled={aiLoading}
+                        />
+                        <button
+                          onClick={handleAiRefine}
+                          disabled={aiLoading || !aiRefineInput.trim()}
+                          className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5 transition-colors"
+                        >
+                          {aiLoading ? (
+                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            "Refine"
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Error */}
           {error && (

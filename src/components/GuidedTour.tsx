@@ -1,49 +1,50 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 interface TourStep {
   title: string;
+  icon: string;
   description: string;
-  targetSelector: string;
-  fallbackPosition?: { top: number; left: number };
+  actionLabel?: string;
+  actionHref?: string;
 }
 
 const TOUR_STEPS: TourStep[] = [
   {
-    title: "Welcome to DataPipe!",
+    title: "Welcome to DataPipe",
+    icon: "\uD83D\uDE80",
     description:
-      "Your all-in-one data platform. Let's take a quick tour.",
-    targetSelector: "[data-tour='hero']",
-    fallbackPosition: { top: 200, left: 400 },
+      "Your all-in-one data platform. SQL, Excel, BI, Planning, and AI \u2014 all in your browser. Let\u2019s take a quick tour!",
   },
   {
     title: "Load Demo Data",
+    icon: "\uD83D\uDCCA",
     description:
-      "Start with enterprise data from Revolut, Siemens, or Deloitte.",
-    targetSelector: "[data-tour='demos']",
-    fallbackPosition: { top: 500, left: 400 },
+      "Start with enterprise data from Revolut (FinTech), Siemens (Industrial), or Deloitte (Consulting). Each includes 7\u20138 interconnected tables.",
+    actionLabel: "Load Revolut Demo \u2192",
+    actionHref: "/demo",
   },
   {
-    title: "Ask AI",
+    title: "AI-Powered Analysis",
+    icon: "\u2728",
     description:
-      "Type any question in plain English — AI generates SQL and charts automatically.",
-    targetSelector: "[data-tour='nav-ai']",
-    fallbackPosition: { top: 56, left: 600 },
+      "Ask questions in plain English: \u201CTop 5 customers by revenue\u201D \u2014 AI generates SQL, executes it, and shows charts automatically. Try it in the SQL editor with the AI Write button.",
   },
   {
-    title: "SQL & Spreadsheet",
+    title: "Full SQL & Spreadsheet",
+    icon: "\uD83D\uDD0D",
     description:
-      "Full SQL with JOINs, window functions, and a spreadsheet with formulas.",
-    targetSelector: "[data-tour='nav-analyze']",
-    fallbackPosition: { top: 56, left: 400 },
+      "Complete SQLite SQL engine: JOINs, CTEs, window functions, date functions. Plus a full spreadsheet editor with formulas, undo/redo, and find & replace.",
   },
   {
-    title: "Planning Tools",
+    title: "Planning & Budgeting",
+    icon: "\uD83D\uDCC8",
     description:
-      "Budget builder, P&L simulator, cash flow, variance analysis — all built in.",
-    targetSelector: "[data-tour='nav-planning']",
-    fallbackPosition: { top: 56, left: 500 },
+      "P&L Simulator, Budget Builder, Variance Analysis, Cash Flow Projections, Goal Seek \u2014 everything a controller needs. Go to Planning in the nav to explore.",
+    actionLabel: "Open Planning \u2192",
+    actionHref: "/planning",
   },
 ];
 
@@ -52,15 +53,12 @@ const STORAGE_KEY = "datapipe-tour-done";
 export default function GuidedTour() {
   const [active, setActive] = useState(false);
   const [step, setStep] = useState(0);
-  const [tooltipPos, setTooltipPos] = useState<{
-    top: number;
-    left: number;
-    width: number;
-    height: number;
-  } | null>(null);
+  const [fadeClass, setFadeClass] = useState("opacity-100");
+  const router = useRouter();
 
   const startTour = useCallback(() => {
     setStep(0);
+    setFadeClass("opacity-100");
     setActive(true);
   }, []);
 
@@ -68,8 +66,7 @@ export default function GuidedTour() {
   useEffect(() => {
     try {
       if (!localStorage.getItem(STORAGE_KEY)) {
-        // Small delay to let the page render
-        const timer = setTimeout(() => setActive(true), 800);
+        const timer = setTimeout(() => setActive(true), 600);
         return () => clearTimeout(timer);
       }
     } catch {
@@ -79,48 +76,12 @@ export default function GuidedTour() {
 
   // Expose restart function on window for the nav help button
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__datapipeStartTour = startTour;
+    (window as unknown as Record<string, unknown>).__datapipeStartTour =
+      startTour;
     return () => {
       delete (window as unknown as Record<string, unknown>).__datapipeStartTour;
     };
   }, [startTour]);
-
-  // Position spotlight relative to target element (viewport-relative for fixed positioning)
-  useEffect(() => {
-    if (!active) return;
-
-    async function positionTooltip() {
-      const currentStep = TOUR_STEPS[step];
-      if (!currentStep) return;
-
-      const target = document.querySelector(currentStep.targetSelector);
-      if (target) {
-        // Scroll target into view
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
-        // Wait a tick for scroll to complete before measuring
-        await new Promise((r) => setTimeout(r, 400));
-        // Use getBoundingClientRect for VIEWPORT-relative coordinates (since overlay is fixed)
-        const rect = target.getBoundingClientRect();
-        setTooltipPos({
-          top: rect.top,
-          left: rect.left,
-          width: rect.width,
-          height: rect.height,
-        });
-      } else if (currentStep.fallbackPosition) {
-        setTooltipPos({
-          top: currentStep.fallbackPosition.top,
-          left: currentStep.fallbackPosition.left,
-          width: 200,
-          height: 40,
-        });
-      }
-    }
-
-    positionTooltip();
-    window.addEventListener("resize", positionTooltip);
-    return () => window.removeEventListener("resize", positionTooltip);
-  }, [active, step]);
 
   function completeTour() {
     setActive(false);
@@ -131,11 +92,19 @@ export default function GuidedTour() {
     }
   }
 
+  function goToStep(nextStep: number) {
+    setFadeClass("opacity-0");
+    setTimeout(() => {
+      setStep(nextStep);
+      setFadeClass("opacity-100");
+    }, 200);
+  }
+
   function nextStep() {
     if (step >= TOUR_STEPS.length - 1) {
       completeTour();
     } else {
-      setStep(step + 1);
+      goToStep(step + 1);
     }
   }
 
@@ -143,69 +112,101 @@ export default function GuidedTour() {
     completeTour();
   }
 
-  if (!active || !tooltipPos) return null;
+  function handleAction(href: string) {
+    completeTour();
+    router.push(href);
+  }
+
+  if (!active) return null;
 
   const currentStep = TOUR_STEPS[step];
-  const targetRect = tooltipPos;
+  const isLastStep = step >= TOUR_STEPS.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[200] pointer-events-none" aria-modal="true">
-      {/* Spotlight highlight around target — box-shadow covers rest of screen */}
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      aria-modal="true"
+      role="dialog"
+    >
+      {/* Dark backdrop */}
       <div
-        className="fixed z-[201] rounded-lg ring-4 ring-accent/50 pointer-events-none transition-all duration-500"
-        style={{
-          top: targetRect.top,
-          left: targetRect.left,
-          width: targetRect.width,
-          height: targetRect.height,
-          boxShadow: "0 0 0 9999px rgba(0,0,0,0.75)",
-        }}
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={skipTour}
       />
 
-      {/* Tooltip — fixed at bottom center so buttons are always visible */}
+      {/* Card */}
       <div
-        className="fixed z-[210] w-96 bg-bg-card border border-border-subtle rounded-xl shadow-2xl p-5 transition-all duration-300 pointer-events-auto"
-        style={{ bottom: 32, left: "50%", transform: "translateX(-50%)" }}
+        className={`relative z-[210] w-full max-w-md mx-4 bg-bg-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden transition-opacity duration-200 ${fadeClass}`}
       >
-        {/* Step indicator */}
-        <div className="flex items-center gap-1.5 mb-3">
-          {TOUR_STEPS.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 rounded-full transition-all ${
-                i === step
-                  ? "w-6 bg-accent"
-                  : i < step
-                    ? "w-3 bg-accent/50"
-                    : "w-3 bg-border-subtle"
-              }`}
-            />
-          ))}
-          <span className="ml-auto text-[11px] text-text-muted">
-            {step + 1}/{TOUR_STEPS.length}
-          </span>
-        </div>
+        {/* Top accent bar */}
+        <div className="h-1 bg-gradient-to-r from-accent to-[#8b5cf6]" />
 
-        <h3 className="text-base font-bold text-text-primary mb-1">
-          {currentStep.title}
-        </h3>
-        <p className="text-sm text-text-secondary mb-4">
-          {currentStep.description}
-        </p>
+        <div className="p-8">
+          {/* Step counter */}
+          <div className="text-xs font-medium text-text-muted mb-6">
+            Step {step + 1} of {TOUR_STEPS.length}
+          </div>
 
-        <div className="flex items-center justify-between">
-          <button
-            onClick={skipTour}
-            className="text-xs text-text-muted hover:text-text-secondary transition-colors"
-          >
-            Skip Tour
-          </button>
-          <button
-            onClick={nextStep}
-            className="px-4 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
-          >
-            {step >= TOUR_STEPS.length - 1 ? "Finish" : "Next"}
-          </button>
+          {/* Large icon */}
+          <div className="text-6xl mb-6 text-center" aria-hidden="true">
+            {currentStep.icon}
+          </div>
+
+          {/* Title */}
+          <h2 className="text-xl font-bold text-text-primary text-center mb-3">
+            {currentStep.title}
+          </h2>
+
+          {/* Description */}
+          <p className="text-sm text-text-secondary text-center leading-relaxed mb-6">
+            {currentStep.description}
+          </p>
+
+          {/* Quick action button */}
+          {currentStep.actionLabel && currentStep.actionHref && (
+            <div className="flex justify-center mb-6">
+              <button
+                onClick={() => handleAction(currentStep.actionHref!)}
+                className="px-4 py-2 rounded-lg bg-accent/10 border border-accent/30 text-accent text-sm font-medium hover:bg-accent/20 transition-colors"
+              >
+                {currentStep.actionLabel}
+              </button>
+            </div>
+          )}
+
+          {/* Dot indicators */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            {TOUR_STEPS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => goToStep(i)}
+                className={`rounded-full transition-all ${
+                  i === step
+                    ? "w-3 h-3 bg-accent"
+                    : i < step
+                      ? "w-2.5 h-2.5 bg-accent/40"
+                      : "w-2.5 h-2.5 bg-border-subtle"
+                }`}
+                aria-label={`Go to step ${i + 1}`}
+              />
+            ))}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={skipTour}
+              className="text-sm text-text-muted hover:text-text-secondary transition-colors px-3 py-2"
+            >
+              Skip Tour
+            </button>
+            <button
+              onClick={nextStep}
+              className="px-6 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors"
+            >
+              {isLastStep ? "Get Started \u2192" : "Next \u2192"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -5,55 +5,87 @@ import { executeSQL } from "@/lib/sqlite-engine";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-function buildRichSchema(): string {
+function buildTableSchema(meta: { id: string; name: string; rowCount: number }, full: { headers: string[]; columnTypes: Record<string, string>; rows: Record<string, string>[] }): string {
+  const lines: string[] = [];
+  lines.push(`## Table: ${meta.id} ("${meta.name}", ${meta.rowCount} rows)`);
+
+  lines.push(`Columns:`);
+  for (const h of full.headers) {
+    const type = full.columnTypes[h];
+    const values = full.rows.slice(0, 50).map(r => r[h]).filter(Boolean);
+
+    if (type === "number") {
+      const nums = values.map(Number).filter(n => !isNaN(n));
+      if (nums.length > 0) {
+        lines.push(`  - ${h} (number): ${Math.min(...nums)} to ${Math.max(...nums)}`);
+      } else {
+        lines.push(`  - ${h} (number)`);
+      }
+    } else {
+      const unique = [...new Set(values)];
+      if (unique.length <= 8) {
+        lines.push(`  - ${h} (string): [${unique.map(v => `"${v}"`).join(", ")}]`);
+      } else if (h.toLowerCase().includes("date") || h === "Month") {
+        const sorted = unique.sort();
+        lines.push(`  - ${h} (string/date): "${sorted[0]}" to "${sorted[sorted.length - 1]}"`);
+      } else {
+        lines.push(`  - ${h} (string): ${unique.length} unique, e.g. "${unique[0]}"`);
+      }
+    }
+  }
+
+  const idCols = full.headers.filter(h => h.endsWith("_ID") || h.endsWith("_Id"));
+  if (idCols.length > 0) {
+    lines.push(`Key columns: ${idCols.join(", ")}`);
+  }
+
+  lines.push(`Sample: ${JSON.stringify(full.rows[0])}`);
+
+  return lines.join("\n");
+}
+
+function buildRichSchema(tableHint?: string): string {
   ensureSeedData();
   const datasets = getAllDatasets();
   const sections: string[] = [];
 
-  for (const meta of datasets) {
-    const full = getDataset(meta.id);
-    if (!full || !full.rows.length) continue;
+  if (tableHint) {
+    // Focused mode: only include the hinted table + related tables via _ID columns
+    const hintedMeta = datasets.find(d => d.id === tableHint);
+    if (hintedMeta) {
+      const hintedFull = getDataset(hintedMeta.id);
+      if (hintedFull && hintedFull.rows.length) {
+        sections.push(buildTableSchema(hintedMeta, hintedFull));
 
-    // Table info
-    const lines: string[] = [];
-    lines.push(`## Table: ${meta.id} ("${meta.name}", ${meta.rowCount} rows)`);
+        // Find related tables via _ID columns
+        const idCols = hintedFull.headers.filter(h => h.endsWith("_ID") || h.endsWith("_Id"));
+        for (const meta of datasets) {
+          if (meta.id === tableHint) continue;
+          const full = getDataset(meta.id);
+          if (!full || !full.rows.length) continue;
 
-    // Columns with types
-    lines.push(`Columns:`);
-    for (const h of full.headers) {
-      const type = full.columnTypes[h];
-      const values = full.rows.slice(0, 50).map(r => r[h]).filter(Boolean);
+          // Include if any of the hinted table's _ID columns appear in this table
+          const hasRelation = idCols.some(idCol => full.headers.includes(idCol));
+          // Also include if this table has _ID columns that match names in the hinted table
+          const reverseRelation = full.headers
+            .filter(h => h.endsWith("_ID") || h.endsWith("_Id"))
+            .some(idCol => hintedFull.headers.includes(idCol));
 
-      if (type === "number") {
-        const nums = values.map(Number).filter(n => !isNaN(n));
-        if (nums.length > 0) {
-          lines.push(`  - ${h} (number): ${Math.min(...nums)} to ${Math.max(...nums)}`);
-        } else {
-          lines.push(`  - ${h} (number)`);
-        }
-      } else {
-        const unique = [...new Set(values)];
-        if (unique.length <= 8) {
-          lines.push(`  - ${h} (string): [${unique.map(v => `"${v}"`).join(", ")}]`);
-        } else if (h.toLowerCase().includes("date") || h === "Month") {
-          const sorted = unique.sort();
-          lines.push(`  - ${h} (string/date): "${sorted[0]}" to "${sorted[sorted.length - 1]}"`);
-        } else {
-          lines.push(`  - ${h} (string): ${unique.length} unique, e.g. "${unique[0]}"`);
+          if (hasRelation || reverseRelation) {
+            sections.push(buildTableSchema(meta, full));
+          }
         }
       }
     }
+  }
 
-    // Key relationships
-    const idCols = full.headers.filter(h => h.endsWith("_ID") || h.endsWith("_Id"));
-    if (idCols.length > 0) {
-      lines.push(`Key columns: ${idCols.join(", ")}`);
+  // Fallback: if no tableHint or hinted table not found, include all tables
+  if (sections.length === 0) {
+    for (const meta of datasets) {
+      const full = getDataset(meta.id);
+      if (!full || !full.rows.length) continue;
+      sections.push(buildTableSchema(meta, full));
     }
-
-    // Only 1 sample row to keep prompt small
-    lines.push(`Sample: ${JSON.stringify(full.rows[0])}`);
-
-    sections.push(lines.join("\n"));
   }
 
   return sections.join("\n\n");
@@ -132,13 +164,13 @@ function detectChartType(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { question } = body as { question?: string };
+    const { question, tableHint } = body as { question?: string; tableHint?: string };
 
     if (!question || typeof question !== "string" || question.trim().length === 0) {
       return Response.json({ error: "question is required" }, { status: 400 });
     }
 
-    const richSchema = buildRichSchema();
+    const richSchema = buildRichSchema(tableHint);
 
     const systemPrompt = `You are an expert SQL analyst. Generate a precise SQLite-compatible SQL query to answer the user's question.
 
