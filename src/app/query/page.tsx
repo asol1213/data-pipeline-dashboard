@@ -138,6 +138,7 @@ export default function QueryPage() {
   const [aiGeneratedSql, setAiGeneratedSql] = useState("");
   const [aiRefineInput, setAiRefineInput] = useState("");
   const [aiRefineOpen, setAiRefineOpen] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   useEffect(() => {
     setSavedQueries(getSavedQueries());
@@ -158,7 +159,7 @@ export default function QueryPage() {
 
   // Initialize AI table selection when datasets load
   useEffect(() => {
-    if (datasets.length > 0 && !aiTableId) {
+    if (false && datasets.length > 0 && !aiTableId) {
       setAiTableId(datasets[0].id);
     }
   }, [datasets, aiTableId]);
@@ -177,6 +178,7 @@ export default function QueryPage() {
     setAiLoading(true);
     setAiGeneratedSql("");
     setAiRefineOpen(false);
+    setAiError("");
     try {
       const res = await fetch("/api/nl2sql", {
         method: "POST",
@@ -184,11 +186,17 @@ export default function QueryPage() {
         body: JSON.stringify({ question, tableHint: aiTableId || undefined }),
       });
       const data = await res.json();
-      if (data.sql) {
+      if (data.error) {
+        if (data.error.includes("rate_limit") || data.error.includes("429")) {
+          setAiError("AI rate limit reached. Please wait a few minutes and try again, or write SQL manually.");
+        } else {
+          setAiError(data.error);
+        }
+      } else if (data.sql) {
         setAiGeneratedSql(data.sql);
       }
-    } catch {
-      // ignore - user can retry
+    } catch (err) {
+      setAiError("Failed to generate SQL. Check your connection and try again.");
     } finally {
       setAiLoading(false);
     }
@@ -482,6 +490,7 @@ export default function QueryPage() {
                     onChange={(e) => setAiTableId(e.target.value)}
                     className="w-full bg-bg-input border border-border-subtle rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-purple-500 cursor-pointer"
                   >
+                    <option value="">All Tables (AI decides)</option>
                     {datasets.map((ds) => (
                       <option key={ds.id} value={ds.id}>
                         {ds.name} ({ds.rowCount} rows)
@@ -555,6 +564,13 @@ export default function QueryPage() {
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Error display */}
+                {aiError && (
+                  <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                    {aiError}
                   </div>
                 )}
 
