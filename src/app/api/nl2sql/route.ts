@@ -5,41 +5,63 @@ import { parseSQL, executeQuery, SQLError } from "@/lib/sql-engine";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-function buildTableSchema(): string {
+function buildRichSchema(): string {
   ensureSeedData();
   const datasets = getAllDatasets();
-  const lines: string[] = [];
+  const sections: string[] = [];
 
   for (const meta of datasets) {
     const full = getDataset(meta.id);
-    if (!full) continue;
+    if (!full || !full.rows.length) continue;
 
-    const cols = full.headers
-      .map((h) => `${h} (${full.columnTypes[h]})`)
-      .join(", ");
-    lines.push(`- ${meta.id}: ${cols}`);
+    // Table info
+    const lines: string[] = [];
+    lines.push(`## Table: ${meta.id} ("${meta.name}", ${meta.rowCount} rows)`);
 
-    // Also show name alias
-    const nameKey = meta.name.toLowerCase().replace(/\s+/g, "_");
-    if (nameKey !== meta.id) {
-      lines.push(`  (also accessible as: ${nameKey})`);
+    // Columns with types
+    lines.push(`Columns:`);
+    for (const h of full.headers) {
+      const type = full.columnTypes[h];
+      const values = full.rows.map(r => r[h]).filter(Boolean);
+
+      if (type === "number") {
+        const nums = values.map(Number).filter(n => !isNaN(n));
+        if (nums.length > 0) {
+          const min = Math.min(...nums);
+          const max = Math.max(...nums);
+          lines.push(`  - ${h} (${type}): range ${min} to ${max}`);
+        } else {
+          lines.push(`  - ${h} (${type})`);
+        }
+      } else {
+        const unique = [...new Set(values)];
+        if (unique.length <= 15) {
+          lines.push(`  - ${h} (${type}): values = [${unique.slice(0, 10).map(v => `"${v}"`).join(", ")}${unique.length > 10 ? "..." : ""}]`);
+        } else {
+          // Show date range if it looks like dates
+          if (h.toLowerCase().includes("date") || h === "Month") {
+            const sorted = unique.sort();
+            lines.push(`  - ${h} (${type}): range "${sorted[0]}" to "${sorted[sorted.length - 1]}" (${unique.length} unique values)`);
+          } else {
+            lines.push(`  - ${h} (${type}): ${unique.length} unique values, e.g. "${unique[0]}", "${unique[1]}"`);
+          }
+        }
+      }
     }
+
+    // Key relationships
+    const idCols = full.headers.filter(h => h.endsWith("_ID") || h.endsWith("_Id"));
+    if (idCols.length > 0) {
+      lines.push(`Key columns: ${idCols.join(", ")}`);
+    }
+
+    // Sample rows
+    lines.push(`Sample (first 3 rows): ${JSON.stringify(full.rows.slice(0, 3))}`);
+
+    sections.push(lines.join("\n"));
   }
 
-  return lines.join("\n");
-}
-
-function getSampleRows(): string {
-  const datasets = getAllDatasets();
-  const samples: string[] = [];
-  for (const meta of datasets) {
-    const full = getDataset(meta.id);
-    if (!full) continue;
-    samples.push(
-      `${meta.id} sample: ${JSON.stringify(full.rows.slice(0, 2))}`
-    );
-  }
-  return samples.join("\n");
+  return sections.join("\n\n");
 }
 
 function detectChartType(
@@ -121,28 +143,25 @@ export async function POST(request: Request) {
       return Response.json({ error: "question is required" }, { status: 400 });
     }
 
-    const tableSchema = buildTableSchema();
-    const sampleData = getSampleRows();
+    const richSchema = buildRichSchema();
 
-    const systemPrompt = `You are a SQL expert. Generate a SQL query to answer the user's question.
+    const systemPrompt = `You are an expert SQL analyst. Generate a precise SQL query to answer the user's question.
 
-Available tables:
-${tableSchema}
+DATABASE SCHEMA:
+${richSchema}
 
-Sample data:
-${sampleData}
-
-Rules:
-- Return ONLY the SQL query, nothing else
-- No markdown code blocks, no explanation, just the raw SQL
-- Use the exact table names and column names shown above
-- For JOINs, use the correct ID columns
-- Always add LIMIT 20 unless the user asks for all data
-- Use GROUP BY for aggregations
-- Use ORDER BY DESC for "top/highest/best" questions
-- Use ORDER BY ASC for "bottom/lowest/worst" questions
-- Column names with special characters like % must be used as-is (e.g. Discount_%)
-- If the user asks for a specific chart type (line, bar, pie, area), include a comment at the end of the SQL: -- CHART:line or -- CHART:bar or -- CHART:pie or -- CHART:area`;
+CRITICAL RULES:
+1. Return ONLY the raw SQL query — no markdown, no code blocks, no explanation
+2. Use EXACT table names and column names from the schema above
+3. When filtering by date/year/month, use the Date or Month column with YEAR(), MONTH() functions or string matching (e.g., WHERE Date LIKE '2025%' or WHERE YEAR(Date) = 2025)
+4. For "sales data 2025" → filter WHERE YEAR(Date) = 2025 or WHERE Date LIKE '2025%'
+5. For JOINs, match tables on their _ID columns (e.g., Product_ID, Customer_ID, Region_ID)
+6. Always add LIMIT 50 unless user asks for all data or aggregation
+7. Use GROUP BY for aggregations, ORDER BY DESC for "top/highest/best"
+8. Column names with special characters like % or & must be used as-is
+9. If the question mentions a year, month, or date range — ALWAYS filter by it
+10. If unsure which table, pick the most relevant one based on the column names mentioned
+11. If the user asks for a chart type (line, bar, pie), add: -- CHART:type at the end`;
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [
