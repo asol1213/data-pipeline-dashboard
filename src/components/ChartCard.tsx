@@ -159,11 +159,37 @@ export default function ChartCard({
     const max = Math.max(...values);
     const avg = Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
 
-    const chartContext = `This chart shows "${aiColumnName}" data with ${aiChartPoints.length} data points.
-Values: ${aiChartPoints.map((d) => `${d.label}: ${d.value}`).join(", ")}
-Min: ${min}, Max: ${max}, Average: ${avg}
-Chart type: ${chartType}
-The user is looking at this specific chart and asking:`;
+    // Detect if data is sorted by value (descending/ascending)
+    const isSortedDesc = values.every((v, i) => i === 0 || v <= values[i - 1]);
+    const isSortedAsc = values.every((v, i) => i === 0 || v >= values[i - 1]);
+    const sortInfo = isSortedDesc ? "NOTE: Data is sorted by value DESCENDING (highest first) — this is NOT a time trend, just ranking."
+                   : isSortedAsc ? "NOTE: Data is sorted by value ASCENDING (lowest first) — this is NOT a time trend, just ranking."
+                   : "Data is shown in its natural order.";
+
+    // Detect if labels look like IDs (T-0001) vs dates (Jan 2025)
+    const firstLabel = aiChartPoints[0]?.label || "";
+    const isIdBased = /^[A-Z]-\d+$/.test(firstLabel) || /^\d+$/.test(firstLabel);
+    const labelInfo = isIdBased
+      ? `Labels are record IDs (${firstLabel}...) — NOT time-based. Each bar/point represents a different record.`
+      : `Labels: ${firstLabel}... — may represent time periods or categories.`;
+
+    const totalNote = aiChartPoints.length < 200 ? `Showing ${aiChartPoints.length} of possibly more records.` : "";
+
+    const chartContext = `You are analyzing a ${chartType} chart showing "${aiColumnName}" data.
+
+Data: ${aiChartPoints.length} data points
+Min: ${min}, Max: ${max}, Average: ${avg}, Median: ${values.sort((a, b) => a - b)[Math.floor(values.length / 2)]}
+${sortInfo}
+${labelInfo}
+${totalNote}
+
+Top 5 values: ${aiChartPoints.slice(0, 5).map((d) => `${d.label}=${d.value}`).join(", ")}
+Bottom 5 values: ${aiChartPoints.slice(-5).map((d) => `${d.label}=${d.value}`).join(", ")}
+
+IMPORTANT: If the data is sorted by value, do NOT call it a "trend" — it's a ranking. Only call it a trend if the x-axis represents time.
+Be specific with numbers. Reference actual data points.
+
+User question:`;
 
     setAiMessages((prev) => [...prev, { role: "user", content: question }]);
     setAiInput("");
@@ -289,7 +315,7 @@ The user is looking at this specific chart and asking:`;
   const pieTooManyValues = chartType === "pie" && uniqueLabelCount > PIE_MAX_SLICES;
 
   return (
-    <div className="bg-bg-card rounded-xl border border-border-subtle p-6 shadow-lg shadow-black/5">
+    <div className="bg-bg-card rounded-xl border border-border-subtle p-6 shadow-lg shadow-black/5 relative">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
@@ -506,9 +532,9 @@ The user is looking at this specific chart and asking:`;
         )}
       </div>
 
-      {/* AI Insight Panel */}
+      {/* AI Insight Panel — floating overlay */}
       {aiOpen && hasAiData && (
-        <div className="mt-4 border-t border-border-subtle pt-4">
+        <div className="absolute inset-0 z-20 bg-bg-card/95 backdrop-blur-sm rounded-xl p-4 overflow-y-auto">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-sm">&#10024;</span>
             <span className="text-xs font-semibold text-text-primary">Ask AI about this chart</span>
