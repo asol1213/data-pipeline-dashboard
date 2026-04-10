@@ -1,9 +1,11 @@
 import Groq from "groq-sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getAllDatasets, getDataset } from "@/lib/store";
 import { ensureSeedData } from "@/lib/seed";
 import { computeDatasetStats } from "@/lib/stats";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+const gemini = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 
 function buildAllDatasetsPrompt(): string {
   ensureSeedData();
@@ -92,35 +94,79 @@ Rules:
       systemPrompt = buildAllDatasetsPrompt();
     }
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: message },
-      ],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.3,
-      max_tokens: 2048,
-      stream: true,
-    });
+    // Try providers in order: Groq → Gemini → Cerebras → OpenRouter
+    let responseText = "";
 
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of chatCompletion) {
-            const content = chunk.choices[0]?.delta?.content;
-            if (content) controller.enqueue(encoder.encode(content));
-          }
-          controller.close();
-        } catch (err) {
-          controller.error(err);
-        }
-      },
-    });
+    // 1. Groq (streaming)
+    if (groq) {
+      try {
+        const chatCompletion = await groq.chat.completions.create({
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: message }],
+          model: "llama-3.3-70b-versatile", temperature: 0.3, max_tokens: 2048, stream: true,
+        });
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          async start(controller) {
+            for await (const chunk of chatCompletion) {
+              const c = chunk.choices[0]?.delta?.content;
+              if (c) controller.enqueue(encoder.encode(c));
+            }
+            controller.close();
+          },
+        });
+        return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+      } catch (e) {
+        console.log("Groq chat failed:", (e as Error).message?.slice(0, 80));
+      }
+    }
 
-    return new Response(stream, {
-      headers: { "Content-Type": "text/plain; charset=utf-8", "Transfer-Encoding": "chunked" },
-    });
+    // 2. Gemini
+    if (gemini) {
+      try {
+        const model = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const res = await model.generateContent(`${systemPrompt}\n\nUser: ${message}`);
+        responseText = res.response.text();
+      } catch (e) {
+        console.log("Gemini chat failed:", (e as Error).message?.slice(0, 80));
+      }
+    }
+
+    // 3. Cerebras
+    if (!responseText && process.env.CEREBRAS_API_KEY) {
+      try {
+        const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.CEREBRAS_API_KEY}` },
+          body: JSON.stringify({ model: "llama-3.3-70b", messages: [{ role: "system", content: systemPrompt }, { role: "user", content: message }], temperature: 0.3, max_tokens: 2048 }),
+        });
+        const data = await res.json();
+        responseText = data.choices?.[0]?.message?.content || "";
+      } catch (e) {
+        console.log("Cerebras chat failed:", (e as Error).message?.slice(0, 80));
+      }
+    }
+
+    // 4. OpenRouter
+    if (!responseText && process.env.OPENROUTER_API_KEY) {
+      try {
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` },
+          body: JSON.stringify({ model: "meta-llama/llama-3.3-70b-instruct:free", messages: [{ role: "system", content: systemPrompt }, { role: "user", content: message }], temperature: 0.3, max_tokens: 2048 }),
+        });
+        const data = await res.json();
+        responseText = data.choices?.[0]?.message?.content || "";
+      } catch (e) {
+        console.log("OpenRouter chat failed:", (e as Error).message?.slice(0, 80));
+      }
+    }
+
+    if (!responseText) {
+      return Response.json({ error: "All AI providers are unavailable. Please try again later." }, { status: 503 });
+    }
+
+    // Return non-streaming response as text
+    return new Response(responseText, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
   } catch {
     return Response.json({ error: "Failed to process chat request" }, { status: 500 });
   }
