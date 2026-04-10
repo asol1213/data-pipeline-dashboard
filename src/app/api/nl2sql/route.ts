@@ -52,7 +52,7 @@ async function generateSQLWithAI(systemPrompt: string, question: string): Promis
           "Authorization": `Bearer ${process.env.CEREBRAS_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b",
+          model: "llama3.1-8b",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: question },
@@ -79,7 +79,7 @@ async function generateSQLWithAI(systemPrompt: string, question: string): Promis
           "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "meta-llama/llama-3.3-70b-instruct:free",
+          model: "google/gemma-3-27b-it:free",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: question },

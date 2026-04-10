@@ -137,7 +137,7 @@ Rules:
         const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.CEREBRAS_API_KEY}` },
-          body: JSON.stringify({ model: "llama-3.3-70b", messages: [{ role: "system", content: systemPrompt }, { role: "user", content: message }], temperature: 0.3, max_tokens: 2048 }),
+          body: JSON.stringify({ model: "llama3.1-8b", messages: [{ role: "system", content: systemPrompt }, { role: "user", content: message }], temperature: 0.3, max_tokens: 2048 }),
         });
         const data = await res.json();
         responseText = data.choices?.[0]?.message?.content || "";
@@ -152,7 +152,7 @@ Rules:
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` },
-          body: JSON.stringify({ model: "meta-llama/llama-3.3-70b-instruct:free", messages: [{ role: "system", content: systemPrompt }, { role: "user", content: message }], temperature: 0.3, max_tokens: 2048 }),
+          body: JSON.stringify({ model: "google/gemma-3-27b-it:free", messages: [{ role: "system", content: systemPrompt }, { role: "user", content: message }], temperature: 0.3, max_tokens: 2048 }),
         });
         const data = await res.json();
         responseText = data.choices?.[0]?.message?.content || "";
