@@ -196,6 +196,11 @@ export default function BuilderSlot({
           xKey={labelCol}
           yKey={config.column}
           defaultType={config.chartType ?? "bar"}
+          chartData={chartData.map((row) => ({
+            label: String(row[labelCol]),
+            value: Number(row[config.column!]) || 0,
+          }))}
+          columnName={config.column}
         />
       </div>
     );

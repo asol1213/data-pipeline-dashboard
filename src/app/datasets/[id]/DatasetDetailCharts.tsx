@@ -118,6 +118,11 @@ export default function DatasetDetailCharts({
               yKey={col}
               color={chartColors[i % chartColors.length]}
               onDrillDown={allRows ? handleDrillDown(col) : undefined}
+              chartData={chartData.map((row) => ({
+                label: String(row[labelCol]),
+                value: Number(row[col]) || 0,
+              }))}
+              columnName={col}
             />
             {datasetId && (
               <button

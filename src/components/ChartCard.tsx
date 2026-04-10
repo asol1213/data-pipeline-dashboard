@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -19,6 +19,7 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
+import ReactMarkdown from "react-markdown";
 import { forecast } from "@/lib/forecast";
 
 const PRO_PALETTE = ["#3b82f6", "#8b5cf6", "#06b6d4", "#f59e0b", "#ef4444", "#22c55e"];
@@ -35,6 +36,8 @@ interface ChartCardProps {
   color?: string;
   defaultType?: ChartType;
   onDrillDown?: (label: string, column: string) => void;
+  chartData?: { label: string; value: number }[];
+  columnName?: string;
 }
 
 export default function ChartCard({
@@ -45,9 +48,23 @@ export default function ChartCard({
   color = "#3b82f6",
   defaultType = "bar",
   onDrillDown,
+  chartData: chartDataProp,
+  columnName,
 }: ChartCardProps) {
   const [chartType, setChartType] = useState<ChartType>(defaultType);
   const [showForecast, setShowForecast] = useState(false);
+
+  // AI insight state
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiMessages, setAiMessages] = useState<{ role: string; content: string }[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiInput, setAiInput] = useState("");
+  const [aiStreaming, setAiStreaming] = useState("");
+  const aiEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    aiEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [aiMessages, aiStreaming]);
 
   // Count unique values for pie chart check
   const uniqueLabelCount = useMemo(() => {
@@ -121,6 +138,71 @@ export default function ChartCard({
     },
     [onDrillDown, xKey]
   );
+
+  // Derive chart data points for AI context
+  const aiChartPoints = useMemo(() => {
+    if (chartDataProp) return chartDataProp;
+    return displayData.map((d) => ({
+      label: String(d[xKey]),
+      value: Number(d[yKey]) || 0,
+    }));
+  }, [chartDataProp, displayData, xKey, yKey]);
+
+  const aiColumnName = columnName || yKey;
+  const hasAiData = aiChartPoints.length > 0;
+
+  const sendAiQuestion = useCallback(async (question: string) => {
+    if (aiLoading || !question.trim()) return;
+
+    const values = aiChartPoints.map((d) => d.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const avg = Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
+
+    const chartContext = `This chart shows "${aiColumnName}" data with ${aiChartPoints.length} data points.
+Values: ${aiChartPoints.map((d) => `${d.label}: ${d.value}`).join(", ")}
+Min: ${min}, Max: ${max}, Average: ${avg}
+Chart type: ${chartType}
+The user is looking at this specific chart and asking:`;
+
+    setAiMessages((prev) => [...prev, { role: "user", content: question }]);
+    setAiInput("");
+    setAiLoading(true);
+    setAiStreaming("");
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: `${chartContext}\n\n${question}` }),
+      });
+
+      if (!res.ok || !res.body) throw new Error("Chat failed");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let full = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        full += decoder.decode(value, { stream: true });
+        setAiStreaming(full);
+      }
+
+      setAiMessages((prev) => [...prev, { role: "assistant", content: full }]);
+      setAiStreaming("");
+    } catch {
+      setAiMessages((prev) => [...prev, { role: "assistant", content: "Sorry, something went wrong. Try again." }]);
+    } finally {
+      setAiLoading(false);
+    }
+  }, [aiLoading, aiChartPoints, aiColumnName, chartType]);
+
+  const handleAiSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    sendAiQuestion(aiInput);
+  }, [aiInput, sendAiQuestion]);
 
   const chartTypes: { key: ChartType; label: string }[] = [
     { key: "bar", label: "Bar" },
@@ -246,6 +328,19 @@ export default function ChartCard({
               </button>
             ))}
           </div>
+          {hasAiData && (
+            <button
+              onClick={() => setAiOpen(!aiOpen)}
+              className={`ml-1 px-2 py-1.5 text-xs font-medium rounded-md transition-all border ${
+                aiOpen
+                  ? "bg-[#8b5cf6]/10 text-[#8b5cf6] border-[#8b5cf6]/30"
+                  : "text-text-muted hover:text-text-secondary border-border-subtle hover:border-[#8b5cf6]/30"
+              }`}
+              title="Ask AI about this chart"
+            >
+              <span className="text-sm">&#10024;</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -410,6 +505,107 @@ export default function ChartCard({
           </ResponsiveContainer>
         )}
       </div>
+
+      {/* AI Insight Panel */}
+      {aiOpen && hasAiData && (
+        <div className="mt-4 border-t border-border-subtle pt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm">&#10024;</span>
+            <span className="text-xs font-semibold text-text-primary">Ask AI about this chart</span>
+          </div>
+
+          {/* Quick questions */}
+          {aiMessages.length === 0 && !aiStreaming && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {["What's the trend?", "What are the outliers?", "Summarize this data"].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => sendAiQuestion(q)}
+                  className="px-2.5 py-1 text-[11px] rounded-full border border-border-subtle text-text-muted hover:text-text-primary hover:border-[#8b5cf6]/40 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Messages */}
+          {(aiMessages.length > 0 || aiStreaming) && (
+            <div className="max-h-[200px] overflow-y-auto mb-3 space-y-2 pr-1">
+              {aiMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[90%] rounded-lg px-3 py-1.5 text-xs ${
+                    msg.role === "user"
+                      ? "bg-[#8b5cf6] text-white"
+                      : "bg-bg-secondary border border-border-subtle text-text-primary"
+                  }`}>
+                    {msg.role === "assistant" ? (
+                      <div className="chat-markdown text-xs leading-relaxed">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="leading-relaxed">{msg.content}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {aiStreaming && (
+                <div className="flex justify-start">
+                  <div className="max-w-[90%] rounded-lg px-3 py-1.5 text-xs bg-bg-secondary border border-border-subtle text-text-primary">
+                    <div className="chat-markdown text-xs leading-relaxed">
+                      <ReactMarkdown>{aiStreaming}</ReactMarkdown>
+                      <span className="inline-block w-1 h-3 bg-[#8b5cf6] ml-0.5 animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {aiLoading && !aiStreaming && (
+                <div className="flex justify-start">
+                  <div className="rounded-lg px-3 py-1.5 bg-bg-secondary border border-border-subtle">
+                    <div className="flex gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6] animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6] animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6] animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={aiEndRef} />
+            </div>
+          )}
+
+          {/* Input */}
+          <form onSubmit={handleAiSubmit} className="flex gap-2">
+            <input
+              type="text"
+              value={aiInput}
+              onChange={(e) => setAiInput(e.target.value)}
+              placeholder="Ask anything about this chart..."
+              className="flex-1 px-3 py-1.5 rounded-lg text-xs border border-border-subtle bg-bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/50 placeholder:text-text-muted"
+            />
+            <button
+              type="submit"
+              disabled={aiLoading || !aiInput.trim()}
+              className="px-3 py-1.5 bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:opacity-40 text-white rounded-lg text-xs transition-colors"
+            >
+              Ask
+            </button>
+          </form>
+
+          {/* Close button */}
+          <div className="flex justify-end mt-2">
+            <button
+              onClick={() => { setAiOpen(false); setAiMessages([]); setAiStreaming(""); }}
+              className="text-[10px] text-text-muted hover:text-text-primary transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

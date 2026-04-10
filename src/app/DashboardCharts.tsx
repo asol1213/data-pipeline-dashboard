@@ -36,6 +36,11 @@ export default function DashboardCharts({
             yKey={col}
             color={chartColors[i % chartColors.length]}
             defaultType={defaultTypes[i % defaultTypes.length]}
+            chartData={chartData.map((row) => ({
+              label: String(row[labelCol]),
+              value: Number(row[col]) || 0,
+            }))}
+            columnName={col}
           />
         ))}
       </div>
