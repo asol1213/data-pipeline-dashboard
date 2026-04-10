@@ -63,7 +63,13 @@ export default function ChartCard({
   const aiEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    aiEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Scroll only WITHIN the messages container, not the page
+    if (aiEndRef.current) {
+      const container = aiEndRef.current.parentElement;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
   }, [aiMessages, aiStreaming]);
 
   // Count unique values for pie chart check
@@ -532,9 +538,9 @@ User question:`;
         )}
       </div>
 
-      {/* AI Insight Panel — floating overlay */}
+      {/* AI Insight Panel — inline with own scroll */}
       {aiOpen && hasAiData && (
-        <div className="absolute inset-0 z-20 bg-bg-card/95 backdrop-blur-sm rounded-xl p-4 overflow-y-auto">
+        <div className="mt-3 border-t border-border-subtle pt-3">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-sm">&#10024;</span>
             <span className="text-xs font-semibold text-text-primary">Ask AI about this chart</span>
